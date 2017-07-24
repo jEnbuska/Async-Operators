@@ -51,7 +51,7 @@ class Lazy {
       }
       return true;
     });
-    return this.run(result);
+    return this._run(result);
   }
 
   has(predicate) {
@@ -64,22 +64,22 @@ class Lazy {
       }
       return true;
     });
-    return this.run(result);
+    return this._run(result);
   }
 
   toArray() {
     const result = { value: [], };
     this.middlewares.push(() => (val) => result.value.push(val));
-    return this.run(result);
+    return this._run(result);
   }
 
   reduce(reducer, acc={}) {
     const result = { value: acc, };
     this.middlewares.push(() => (val) => reducer(acc, val));
-    return this.run(result);
+    return this._run(result);
   }
 
-  run(result) {
+  _run(result) {
     const { val, keys, middlewares, } = this;
     const { length, } = middlewares;
     for (let i = length-1; i>=0; i--) {
