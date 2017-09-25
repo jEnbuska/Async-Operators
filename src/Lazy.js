@@ -1,16 +1,17 @@
-/* eslint-disable no-return-assign,consistent-return */
+/* eslint-disable no-return-assign,consistent-return,no-confusing-arrow */
 /**
  * Created by joonaenbuska on 24/07/2017.
  */
+import CompositeAnd from './CompositeAnd';
 
-const { entries, } = Object;
+// Create takeWhile
+
 const NOT_SET = Symbol('NOT_SET');
 const PREVIOUS = Symbol('PREVIOUS');
+const { entries, values, } = Object;
 export default function () {
   return new Lazy();
 }
-
-const has = Object.prototype.hasOwnProperty;
 
 class Lazy {
 
@@ -25,12 +26,99 @@ class Lazy {
     this.middlewares = middlewares;
   }
 
-  map(callback = async function (val) { return await val; }) {
+  _create(operation) {
+    return new Lazy([ ...this.middlewares, operation, ]);
+  }
+
+  async invoke(...sources) {
+    const { middlewares, } = this;
+    let head = null;
+    const execution = { result: NOT_SET, };
+    let tail = middlewares[middlewares.length-1]({ active: CompositeAnd(), }, execution);
+    for (let i = middlewares.length-1; i>0; i--) {
+      head = tail;
+      tail = middlewares[i-1](head, execution);
+    }
+    const { active, next, } = tail;
+    for (let i = 0; i<sources.length && active.call(); i++) {
+      if (sources.length-1===i) {
+        execution.last = true;
+      }
+      await next(sources[i], i);
+    }
+    const { result, } = execution;
+    if (result === NOT_SET) {
+      return Lazy.defaults[middlewares[middlewares.length-1].name];
+    }
+    return result;
+  }
+
+  ordered() {
+    if (this.middlewares.some(mv => mv.name==='createParallel')
+      && this.middlewares.every(mv => mv.name!=='createOrdered')) {
+      return this._create(Lazy.ordered());
+    }
+    return this;
+  }
+
+  static ordered() {
+    return function createOrdered({ next, active, }, execution) {
+      const tasks = {};
+      return {
+        active,
+        next: execution.ordered = async function applyOrdered(val, index, resolve) {
+          if (active.call()) {
+            if (resolve) {
+              const runnables = entries(tasks)
+                .sort((e1, e2) => e1[0] > e2[0] ? 1 : -1)
+                .map((e) => e[1]);
+              for (let i = 0; i < runnables.length; i++) {
+                await runnables[i]();
+                if (!active.call()) {
+                  break;
+                }
+              }
+            } else {
+              tasks[index] = () => next(val, index);
+            }
+          }
+        },
+      };
+    };
+  }
+
+  map(callback) {
     return this._create(Lazy.map(callback));
+  }
+
+  static map(mapper) {
+    return function createMap({ next, active, }) {
+      return {
+        active,
+        next: async function applyMap(val, index) {
+          if (active.call()) {
+            await next(await mapper(val), index);
+          }
+        },
+      };
+    };
   }
 
   resolve() {
     return this._create(Lazy.resolve());
+  }
+
+  static resolve() {
+    return function createResolve({ next, active, }) {
+      return {
+        active,
+        next: async function applyResolve(val, index) {
+          if (active.call()) {
+            await next(await val, index);
+          }
+        },
+      };
+    };
   }
 
   parallel() {
@@ -40,11 +128,49 @@ class Lazy {
     return this._create(Lazy.parallel());
   }
 
-  filter(predicate) {
-    return this._create(Lazy.filter(predicate));
+  static parallel() {
+    return function createParallel({ next, active, }, execution) {
+      const tasks = [];
+      execution.parallel = true;
+      return {
+        active,
+        next: async function applyParallel(val, index) {
+          if (active.call()) {
+            tasks.push(next(val, index));
+            if (execution.last) {
+              await Promise.all(tasks);
+              if (execution.ordered) {
+                return await execution.ordered(undefined, undefined, true);
+              }
+            }
+          }
+        },
+      };
+    };
   }
 
-  distinctBy(picker) {
+  pick(...keys) {
+    return this._create(Lazy.pick(keys));
+  }
+
+  static pick(keys) {
+    const keySet = createSet(keys);
+    return function createPick({ next, active, }) {
+      return {
+        active,
+        next: async function applyPick(val, index) {
+          if (active.call()) {
+            val = entries(val)
+              .filter(e => keySet[e[0]])
+              .reduce(entriesToObject, {});
+            await next(val, index);
+          }
+        },
+      };
+    };
+  }
+
+  distinctBy(picker = identity) {
     if (typeof picker === 'string') {
       const attribute= picker;
       picker = (val) => val[attribute];
@@ -52,295 +178,258 @@ class Lazy {
     return this._create(Lazy.distinctBy(picker));
   }
 
-  peek(callback) {
-    return this._create(Lazy.peek(callback));
+  static distinctBy(picker) {
+    return function createDistinctBy({ next, active, }) {
+      const history = {};
+      return {
+        active,
+        next: async function applyDistinctBy(val, index) {
+          const key = await picker(val);
+          if (active.call() && !history[key]) {
+            history[key] = true;
+            await next(val, index);
+          }
+        },
+      };
+    };
+  }
+
+  filter(predicate = defaultFilter) {
+    if (typeof predicate === 'string') {
+      predicate = createPropertyFilter(predicate);
+    }
+    return this._create(Lazy.filter(predicate));
+  }
+
+  static filter(predicate) {
+    return function createFilter({ active, next, }) {
+      return {
+        active,
+        next: async function applyFilter(val, index) {
+          if (active.call() && await predicate(val)) {
+            await next(val, index);
+          }
+        },
+      };
+    };
+  }
+
+  every(predicate = defaultFilter) {
+    if (typeof predicate === 'string') {
+      predicate = createPropertyFilter(predicate);
+    }
+    return this._create(Lazy.every(predicate));
+  }
+
+  static every(predicate) {
+    return function createEvery({ active, }, execution) {
+      execution.result = true;
+      active = active.concat(() => execution.result);
+      return {
+        active,
+        next: async function applyEvery(val) {
+          if (active.call()) {
+            const result = !!await predicate(val);
+            execution.result = result && execution.result;
+          }
+        },
+      };
+    };
+  }
+
+  some(predicate = defaultFilter) {
+    if (typeof predicate === 'string') {
+      predicate = createPropertyFilter(predicate);
+    }
+    return this._create(Lazy.some(predicate));
+  }
+
+  static some(predicate) {
+    return function createSome({ active, }, execution) {
+      execution.result = false;
+      active = active.concat(() => !execution.result);
+      return {
+        active,
+        next: async function applySome(val) {
+          if (active.call()) {
+            const result = !!await predicate(val);
+            execution.result = execution.result || result;
+          }
+        },
+      };
+    };
   }
 
   takeUntil(predicate) {
     if (typeof predicate === 'string') {
-      const property= predicate;
-      predicate = val => !!val[property];
+      predicate = createPropertyFilter(predicate);
     }
     return this._create(Lazy.takeUntil(predicate));
   }
 
+  static takeUntil(predicate) {
+    return function createTakeUntil({ active, next, }) {
+      let take = true;
+      active = active.concat(() => take);
+      return {
+        active,
+        next: async function applyTakeUntil(val, index) {
+          if (active.call()) {
+            if (!await predicate(val)) {
+              take = false;
+            } else if (active.call()) {
+              await next(val, index);
+            }
+          }
+        },
+      };
+    };
+  }
+
   skipWhile(predicate) {
     if (typeof predicate === 'string') {
-      const property= predicate;
-      predicate = val => !!val[property];
+      predicate = createPropertyFilter(predicate);
     }
     return this._create(Lazy.skipWhile(predicate));
   }
 
-  // DO NOT NEVER CHANGE THE VALUE OF ACC
+  static skipWhile(predicate) {
+    return function createSkipWhile({ active, next, }) {
+      let take = false;
+      return {
+        active,
+        next: async function applySkipWhile(val, index) {
+          if (active.call() && (take || (take = !await predicate(val)))) {
+            await next(val, index);
+          }
+        },
+      };
+    };
+  }
+
+  peek(callback) {
+    return this._create(Lazy.peek(callback));
+  }
+
+  static peek(callback) {
+    return function createPeek({ next, active, }) {
+      return {
+        active,
+        next: async function applyPeek(val, index) {
+          if (active.call()) {
+            await callback(val, index);
+            await next(val, index, false);
+          }
+        },
+      };
+    };
+  }
+
+  // NEVER CHANGE THE VALUE OF ACC
   scan(scanner = ((acc, next) => [ ...acc, next, ]), acc = undefined) {
     return this._create(Lazy.scan(scanner, acc));
   }
 
-  take(number) {
-    return this._create(Lazy.take(number));
+  static scan(scanner, acc) {
+    return function createScan({ active, next, }) {
+      let innerAcc = acc;
+      let futures = [];
+      return {
+        active,
+        next: async function applyScan(val, index) {
+          if (active.call()) {
+            futures.push((input) => scanner(input, val));
+            if (futures.length===1) {
+              for (let i = 0; i<futures.length; i++) {
+                innerAcc = await futures[i](innerAcc);
+                if (active.call()) {
+                  await next(innerAcc, index);
+                } else {
+                  break;
+                }
+              }
+              futures = [];
+            }
+          }
+        },
+      };
+    };
+  }
+
+  take(max) {
+    return this._create(Lazy.take(max));
+  }
+
+  static take(max) {
+    return function createTake({ active, next, }) {
+      let taken = 0;
+      active = active.concat(() => taken < max);
+      return {
+        active,
+        next: async function applyTake(val, index,) {
+          if (active.call()) {
+            taken++;
+            await next(val, index,);
+          }
+        },
+      };
+    };
   }
 
   takeLast() {
     return this._create(Lazy.takeLast());
   }
 
-  every(predicate) {
-    return this._create(Lazy.every(predicate));
-  }
-
-  some(predicate) {
-    return this._create(Lazy.some(predicate));
+  static takeLast() {
+    return function createTakeLast({ active, }, execution) {
+      return {
+        active,
+        next: async function applyTakeLast(val) {
+          execution.result = val;
+        },
+      };
+    };
   }
 
   sum() {
     return this._create(Lazy.sum());
   }
 
-  takeAll() {
-    return this._create(Lazy.takeAll());
-  }
-
-  async apply(...sources) {
-    const { middlewares, } = this;
-    let head = null;
-    const state = { done: false, last: sources.length-1, };
-    let tail = middlewares[middlewares.length-1](null, state);
-    for (let i = middlewares.length-1; i>0; i--) {
-      head = tail;
-      tail = middlewares[i-1](head, state);
-    }
-    let output;
-    for (let i = 0; i<sources.length && !state.done; i++) {
-      const result = await tail(sources[i], i);
-
-      if (result) {
-        output = result.value;
-      }
-    }
-    if (output === undefined) {
-      return Lazy.defaults[middlewares[middlewares.length-1].name];
-    }
-    return output;
-  }
-
-  _create(operation) {
-    return new Lazy([ ...this.middlewares, operation, ]);
-  }
-
-  static peek(callback) {
-    return function createPeek(next, state) {
-      return async function applyPeek(val, index) {
-        if (state.done) {
-          return;
-        }
-        await callback(val, index);
-        return await next(val, index, false);
-      };
-    };
-  }
-
-  static resolve() {
-    return function createResolve(next, state) {
-      return async function applyResolve(val, index) {
-        if (state.done) {
-          return;
-        }
-        return await next(await val, index);
-      };
-    };
-  }
-
-  static filter(predicate = defaultFilter) {
-    return function createFilter(next, state) {
-      return async function applyFilter(val, index) {
-        if (state.done || !await predicate(val, index)) {
-          return;
-        }
-        return await next(val, index);
-      };
-    };
-  }
-
-  static map(mapper) {
-    return function createMap(next, state) {
-      return async function applyMap(val, index) {
-        if (state.done) {
-          return;
-        }
-        const result = await mapper(val, index);
-        return await next(result, index);
-      };
-    };
-  }
-
-  static distinctBy(picker = (next) => next) {
-    return function createDistinctBy(next, state) {
-      const history = {};
-      return async function applyDistinctBy(val, index) {
-        const result = await picker(val, index);
-        if (state.done || history[result]) {
-          return;
-        }
-        history[result] = true;
-        return await next(val, index);
-      };
-    };
-  }
-
-  static parallel() {
-    return function createParallel(next, state) {
-      const tasks = [];
-      let result;
-      return async function applyParallel(val, index) {
-        if (state.done) {
-          return;
-        }
-        tasks.push(next(val, index)
-          .then(res => {
-            if (res) {
-              result=res;
-            }
-          }));
-        if (state.last!==index) {
-          return;
-        }
-        await Promise.all(tasks);
-        return result;
-      };
-    };
-  }
-
-  static takeUntil(predicate) {
-    return function createTakeUntil(next, state) {
-      return async function applyTakeUntil(val, index) {
-        if (state.done) {
-          return;
-        }
-        if (!await predicate(val, index)) {
-          state.done=true;
-          return;
-        }
-        return await next(val, index);
-      };
-    };
-  }
-
-  static skipWhile(predicate) {
-    return function createSkipWhile(next, state) {
-      let started = false;
-      return async function applySkipWhile(val, index) {
-        if (state.done) {
-          return;
-        }
-        if (started) {
-          return await next(val, index);
-        } else if (!await predicate(val, index)) {
-          started = true;
-          return await next(val, index);
-        }
-      };
-    };
-  }
-
   static sum() {
-    return function createSum(next, state) {
-      let value = 0;
-      return async function applySum(val, index) {
-        val = !state.done && await val;
-        if (state.done) {
-          return;
-        }
-        value +=val;
-        return { value, };
+    return function createSum({ active, }, execution) {
+      execution.result = 0;
+      return {
+        active,
+        next: async function applySum(val) {
+          execution.result +=val;
+        },
       };
     };
   }
 
-// DO NOT NEVER CHANGE THE VALUE OF ACC
-  static scan(scanner, acc) {
-    return function createReduce(next, state) {
-      let privateAcc = acc;
-      return async function (val, index) {
-        if (state.done) {
-          return;
-        }
-        privateAcc = await scanner(privateAcc, val, index);
-        return await next(privateAcc, index);
+  reduce(reducer = reduceToArray, acc) {
+    return this._create(Lazy.reduce(reducer, acc));
+  }
+
+  static reduce(reducer, acc) {
+    return function createReduce({ active, }, execution) {
+      execution.result = acc;
+      let futures = [];
+      return {
+        active,
+        next: async function applyReduce(val, index) {
+          futures.push((result) => reducer(result, val, index));
+          if (futures.length===1) {
+            for (let i = 0; i<futures.length; i++) {
+              execution.result = await futures[i](execution.result);
+            }
+            futures = [];
+          }
+        },
       };
     };
   }
 
-  static takeLast() {
-    return function createTakeLast(next, state) {
-      return async function applyTakeLast(val, index) {
-        val = !state.done && await val;
-        if (state.done) {
-          return;
-        }
-        return { value: val, };
-      };
-    };
-  }
-
-  static take(number) {
-    return function createTakeAll(next, state) {
-      let value = [];
-      return async function applyTakeAll(val, index) {
-        val = !state.done && await val;
-        if (state.done) {
-          return;
-        }
-        value = [ ...value, val, ];
-        state.done = state.done || value.length === number;
-        return { value, };
-      };
-    };
-  }
-
-  static takeAll() {
-    return function createTakeAll(next, state) {
-      let value = [];
-      return async function applyTakeAll(val, index) {
-        val = !state.done && await val;
-        if (state.done) {
-          return;
-        }
-        value = [ ...value, val, ];
-        return { value, };
-      };
-    };
-  }
-
-  static every(predicate) {
-    return function createEvery(next, state) {
-      let everyIs = true;
-      return async function (val, index) {
-        everyIs = everyIs && !!await predicate(val, index);
-        if (state.done) {
-          return;
-        }
-        state.done = !everyIs;
-        return { value: everyIs, };
-      };
-    };
-  }
-
-  static some(predicate) {
-    return function createSome(next, state) {
-      let someIs = false;
-      return async function applySome(val, index) {
-        someIs = someIs || !!await predicate(val, index);
-        if (state.done) {
-          return;
-        }
-        if (someIs) {
-          state.done = true;
-        }
-        return { value: someIs, };
-      };
-    };
-  }
 }
 
 function defaultComparator(a, b) {
@@ -356,4 +445,30 @@ function defaultComparator(a, b) {
 function defaultFilter(val) {
   return !!val;
 }
-function alwaysTrue() { return true; }
+
+function reduceToArray(acc = [], next) {
+  return [ ...acc, next, ];
+}
+
+function createPropertyFilter(prop) {
+  return function (val) {
+    return !!val && val[prop];
+  };
+}
+
+function identity(val) {
+  return val;
+}
+
+function createSet(keys) {
+  return values(keys)
+    .reduce(function (acc, key) {
+      acc[key] = true;
+      return acc;
+    }, {});
+}
+
+function entriesToObject(acc, e) {
+  acc[e[0]] = e[1];
+  return acc;
+}
