@@ -1,21 +1,66 @@
 import lazy from '../src/Lazy';
 
-const SUBJECT_A = 'SUBJECT_A';
-const SUBJECT_B = 'SUBJECT_B';
-const SUBJECT_C = 'SUBJECT_C';
-const SUBJECT_D = 'SUBJECT_D';
-
-async function getPatientAddress(id) {
-  return new Promise(res => res('abc'));
-}
-
 async function sleep(time, result) {
   return new Promise(res => setTimeout(() => {
     res(result);
   }, time));
 }
-
+// TEST 'skip'
 describe('lazy', async () => {
+  test('object as keys', async function () {
+    const obj = {};
+    obj[([ 1, ])] = 1;
+    obj[([ 1, 2, ])] = 2;
+  });
+
+  test('where synchronous', async function () {
+    const [ first, second, third, ]= await lazy()
+      .resolve()
+      .where({ a: 1, })
+      .reduce()
+      .invoke(sleep(30, { a: 1, b: 1, }), sleep(20, { a: 1, b: 2, }), sleep(25, { a: 2, b: 1, }));
+
+    expect(first).toEqual({ a: 1, b: 1, });
+    expect(second).toEqual({ a: 1, b: 2, });
+    expect(third).toBeUndefined();
+  });
+  test('where parallel', async function () {
+    const [ first, second, third, ]= await lazy()
+      .parallel()
+      .resolve()
+      .where({ a: 1, })
+      .reduce()
+      .invoke(sleep(30, { a: 1, b: 1, }), sleep(20, { a: 1, b: 2, }), sleep(25, { a: 2, b: 1, }));
+
+    expect(first).toEqual({ a: 1, b: 2, });
+    expect(second).toEqual({ a: 1, b: 1, });
+    expect(third).toBeUndefined();
+  });
+
+  test('skip synchronous', async function () {
+    const [ first, second, ]= await lazy()
+      .resolve()
+      .where({ a: 1, })
+      .skip(1)
+      .reduce()
+      .invoke(sleep(30, { a: 1, b: 1, }), sleep(20, { a: 1, b: 2, }), sleep(25, { a: 2, b: 1, }));
+
+    expect(first).toEqual({ a: 1, b: 2, });
+    expect(second).toBeUndefined();
+  });
+  test('skip parallel', async function () {
+    const [ first, second, ]= await lazy()
+      .parallel()
+      .resolve()
+      .where({ a: 1, })
+      .skip(1)
+      .reduce()
+      .invoke(sleep(30, { a: 1, b: 1, }), sleep(20, { a: 1, b: 2, }), sleep(15, { a: 2, b: 1, }));
+
+    expect(first).toEqual({ a: 1, b: 1, });
+    expect(second).toBeUndefined();
+  });
+
   test('reduce synchronous', async function () {
     const [ first, second, ]= await lazy()
       .resolve()

@@ -2,13 +2,16 @@
 /**
  * Created by joonaenbuska on 24/07/2017.
  */
-import CompositeAnd from './CompositeAnd';
+import And from './CompositeAnd';
 
 // Create takeWhile
+// Create share
+// Check sanity of middlewares on invoke
+// Create flatten -> (index -> [i, j, k] ...)
+// Create groupBy
 
 const NOT_SET = Symbol('NOT_SET');
-const PREVIOUS = Symbol('PREVIOUS');
-const { entries, values, } = Object;
+const { entries, values, hasOwnProperty: has, } = Object;
 export default function () {
   return new Lazy();
 }
@@ -20,6 +23,7 @@ class Lazy {
     createTakeAll: [],
     createSum: 0,
     createTake: [],
+    createReduce: [],
   };
 
   constructor(middlewares = []) {
@@ -32,25 +36,21 @@ class Lazy {
 
   async invoke(...sources) {
     const { middlewares, } = this;
-    let head = null;
-    const execution = { result: NOT_SET, };
-    let tail = middlewares[middlewares.length-1]({ active: CompositeAnd(), }, execution);
+    let output = NOT_SET;
+    let tail = { active: And(), resolve(result) { output = result; }, };
     for (let i = middlewares.length-1; i>0; i--) {
-      head = tail;
-      tail = middlewares[i-1](head, execution);
+      const { active = tail.active, resolve = tail.resolve, next, }= { ...middlewares[i](tail), };
+      tail = { active, resolve, next, };
     }
-    const { active, next, } = tail;
+    const { active, next, resolve, } = tail;
     for (let i = 0; i<sources.length && active.call(); i++) {
-      if (sources.length-1===i) {
-        execution.last = true;
-      }
-      await next(sources[i], i);
+      await next(sources[i], [ i, ]);
     }
-    const { result, } = execution;
-    if (result === NOT_SET) {
+    await resolve();
+    if (output=== NOT_SET) {
       return Lazy.defaults[middlewares[middlewares.length-1].name];
     }
-    return result;
+    return output;
   }
 
   ordered() {
@@ -62,25 +62,46 @@ class Lazy {
   }
 
   static ordered() {
-    return function createOrdered({ next, active, }, execution) {
+    return function createOrdered({ next, active, resolve, }) {
       const tasks = {};
       return {
-        active,
-        next: execution.ordered = async function applyOrdered(val, index, resolve) {
-          if (active.call()) {
-            if (resolve) {
-              const runnables = entries(tasks)
-                .sort((e1, e2) => e1[0] > e2[0] ? 1 : -1)
-                .map((e) => e[1]);
-              for (let i = 0; i < runnables.length; i++) {
-                await runnables[i]();
-                if (!active.call()) {
-                  break;
-                }
-              }
-            } else {
-              tasks[index] = () => next(val, index);
+        resolve: async function resolveOrdered() {
+          const runnables = entries(tasks)
+            .sort((e1, e2) => orderComparator(e1[0], e2[0]))
+            .map((e) => e[1]);
+          for (let i = 0; i < runnables.length; i++) {
+            await runnables[i]();
+            if (!active.call()) {
+              break;
             }
+          }
+          return resolve();
+        },
+        next: async function applyOrdered(val, index) {
+          if (active.call()) {
+            tasks[index] = () => next(val, index);
+          }
+        },
+      };
+    };
+  }
+
+  takeWhile(predicate) {
+    if (typeof predicate === 'string') {
+      predicate= createPropertyFilter(predicate);
+    }
+    return this._create(Lazy.takeWhile(predicate));
+  }
+
+  static takeWhile(predicate) {
+    return function createTakeWhile({ active, next, }) {
+      let take = true;
+      active = active.concat(() => take);
+      return {
+        active,
+        next: async function applyTakeWhile(val, index) {
+          if (take = (await predicate(val) && active())) {
+            await next(val, index);
           }
         },
       };
@@ -94,7 +115,6 @@ class Lazy {
   static map(mapper) {
     return function createMap({ next, active, }) {
       return {
-        active,
         next: async function applyMap(val, index) {
           if (active.call()) {
             await next(await mapper(val), index);
@@ -111,7 +131,6 @@ class Lazy {
   static resolve() {
     return function createResolve({ next, active, }) {
       return {
-        active,
         next: async function applyResolve(val, index) {
           if (active.call()) {
             await next(await val, index);
@@ -129,19 +148,37 @@ class Lazy {
   }
 
   static parallel() {
-    return function createParallel({ next, active, }, execution) {
+    return function createParallel({ next, active, resolve, }) {
       const tasks = [];
-      execution.parallel = true;
       return {
-        active,
+        resolve: async function resolveParallel() {
+          await Promise.all(tasks);
+          return resolve();
+        },
         next: async function applyParallel(val, index) {
           if (active.call()) {
             tasks.push(next(val, index));
-            if (execution.last) {
-              await Promise.all(tasks);
-              if (execution.ordered) {
-                return await execution.ordered(undefined, undefined, true);
-              }
+          }
+        },
+      };
+    };
+  }
+
+  skip(count) {
+    return this._create(Lazy.skip(count));
+  }
+
+  static skip(count) {
+    count = Number(count) || 0;
+    return function createSkip({ active, next, }) {
+      let total = 0;
+      return {
+        next: async function applySkip(val, index) {
+          if (active.call()) {
+            if (total>=count) {
+              await next(val, index);
+            } else {
+              total++;
             }
           }
         },
@@ -157,7 +194,6 @@ class Lazy {
     const keySet = createSet(keys);
     return function createPick({ next, active, }) {
       return {
-        active,
         next: async function applyPick(val, index) {
           if (active.call()) {
             val = entries(val)
@@ -182,12 +218,13 @@ class Lazy {
     return function createDistinctBy({ next, active, }) {
       const history = {};
       return {
-        active,
         next: async function applyDistinctBy(val, index) {
-          const key = await picker(val);
-          if (active.call() && !history[key]) {
-            history[key] = true;
-            await next(val, index);
+          if (active.call()) {
+            const key = await picker(val);
+            if (!history[key]) {
+              history[key] = true;
+              await next(val, index);
+            }
           }
         },
       };
@@ -204,9 +241,30 @@ class Lazy {
   static filter(predicate) {
     return function createFilter({ active, next, }) {
       return {
-        active,
         next: async function applyFilter(val, index) {
           if (active.call() && await predicate(val)) {
+            await next(val, index);
+          }
+        },
+      };
+    };
+  }
+
+  where(matcher) {
+    return this._create(Lazy.where(matcher));
+  }
+
+  static where(matcher) {
+    const matchEntries = entries(matcher);
+    return function createMatcher({ active, next, }) {
+      return {
+        next: async function applyMatcher(val, index) {
+          if (active.call()) {
+            for (const e of matchEntries) {
+              if (val[e[0]] !== e[1]) {
+                return;
+              }
+            }
             await next(val, index);
           }
         },
@@ -222,15 +280,18 @@ class Lazy {
   }
 
   static every(predicate) {
-    return function createEvery({ active, }, execution) {
-      execution.result = true;
-      active = active.concat(() => execution.result);
+    return function createEvery({ active, resolve, }) {
+      let output = true;
+      active = active.concat(() => output);
       return {
+        resolve: function resolveEvery() {
+          resolve(output);
+        },
         active,
         next: async function applyEvery(val) {
           if (active.call()) {
             const result = !!await predicate(val);
-            execution.result = result && execution.result;
+            output = result && output;
           }
         },
       };
@@ -245,15 +306,16 @@ class Lazy {
   }
 
   static some(predicate) {
-    return function createSome({ active, }, execution) {
-      execution.result = false;
-      active = active.concat(() => !execution.result);
+    return function createSome({ active, resolve, }) {
+      let output = false;
+      active = active.concat(() => !output);
       return {
         active,
+        resolve: function resolveSome() { resolve(output); },
         next: async function applySome(val) {
           if (active.call()) {
             const result = !!await predicate(val);
-            execution.result = execution.result || result;
+            output = result || output;
           }
         },
       };
@@ -277,9 +339,8 @@ class Lazy {
           if (active.call()) {
             if (!await predicate(val)) {
               take = false;
-            } else if (active.call()) {
-              await next(val, index);
             }
+            await next(val, index);
           }
         },
       };
@@ -297,7 +358,6 @@ class Lazy {
     return function createSkipWhile({ active, next, }) {
       let take = false;
       return {
-        active,
         next: async function applySkipWhile(val, index) {
           if (active.call() && (take || (take = !await predicate(val)))) {
             await next(val, index);
@@ -314,7 +374,6 @@ class Lazy {
   static peek(callback) {
     return function createPeek({ next, active, }) {
       return {
-        active,
         next: async function applyPeek(val, index) {
           if (active.call()) {
             await callback(val, index);
@@ -335,16 +394,17 @@ class Lazy {
       let innerAcc = acc;
       let futures = [];
       return {
-        active,
         next: async function applyScan(val, index) {
           if (active.call()) {
-            futures.push((input) => scanner(input, val));
+            futures.push(async (input) => {
+              const result = await scanner(input, val);
+              innerAcc = result;
+              await next(result, index);
+            });
             if (futures.length===1) {
               for (let i = 0; i<futures.length; i++) {
-                innerAcc = await futures[i](innerAcc);
-                if (active.call()) {
-                  await next(innerAcc, index);
-                } else {
+                await futures[i](innerAcc);
+                if (!active.call()) {
                   break;
                 }
               }
@@ -361,15 +421,16 @@ class Lazy {
   }
 
   static take(max) {
+    max = Number(max) || 0;
     return function createTake({ active, next, }) {
       let taken = 0;
       active = active.concat(() => taken < max);
       return {
         active,
-        next: async function applyTake(val, index,) {
+        next: async function applyTake(val, index) {
           if (active.call()) {
             taken++;
-            await next(val, index,);
+            await next(val, index);
           }
         },
       };
@@ -381,11 +442,14 @@ class Lazy {
   }
 
   static takeLast() {
-    return function createTakeLast({ active, }, execution) {
+    return function createTakeLast({ active, resolve, }) {
+      let last;
       return {
-        active,
+        resolve: function resolveTakeLast() { resolve(last); },
         next: async function applyTakeLast(val) {
-          execution.result = val;
+          if (active.call()) {
+            last = val;
+          }
         },
       };
     };
@@ -396,12 +460,14 @@ class Lazy {
   }
 
   static sum() {
-    return function createSum({ active, }, execution) {
-      execution.result = 0;
+    return function createSum({ active, resolve, }) {
+      let total = 0;
       return {
-        active,
+        resolve: function resolveSum() { resolve(total); },
         next: async function applySum(val) {
-          execution.result +=val;
+          if (active.call()) {
+            total +=val;
+          }
         },
       };
     };
@@ -412,18 +478,20 @@ class Lazy {
   }
 
   static reduce(reducer, acc) {
-    return function createReduce({ active, }, execution) {
-      execution.result = acc;
+    return function createReduce({ active, resolve, }) {
+      let output = acc;
       let futures = [];
       return {
-        active,
+        resolve: function resolveReduce() { return resolve(output); },
         next: async function applyReduce(val, index) {
-          futures.push((result) => reducer(result, val, index));
-          if (futures.length===1) {
-            for (let i = 0; i<futures.length; i++) {
-              execution.result = await futures[i](execution.result);
+          if (active.call()) {
+            futures.push((result) => reducer(result, val, index));
+            if (futures.length===1) {
+              for (let i = 0; i<futures.length; i++) {
+                output = await futures[i](output);
+              }
+              futures = [];
             }
-            futures = [];
           }
         },
       };
@@ -471,4 +539,15 @@ function createSet(keys) {
 function entriesToObject(acc, e) {
   acc[e[0]] = e[1];
   return acc;
+}
+
+function orderComparator(a, b) {
+  const { length, } = a;
+  for (let i = 0; i<length; i++) {
+    const diff = a[i]-b[i];
+    if (diff) {
+      return diff;
+    }
+  }
+  return 0;
 }

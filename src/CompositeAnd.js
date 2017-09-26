@@ -1,8 +1,8 @@
-export default function CompositeAnd(predicate) {
-  return new CompositeAndImplementation(predicate);
+export default function And(predicate) {
+  return new CompositeAnd(predicate);
 }
 
-class CompositeAndImplementation {
+class CompositeAnd {
 
   constructor(predicate = returnTrue, previous=returnTrue) {
     this.predicate = predicate;
@@ -10,7 +10,7 @@ class CompositeAndImplementation {
   }
 
   concat(predicate) {
-    return new CompositeAndImplementation(predicate, this);
+    return And(predicate, this);
   }
 
   call() {
