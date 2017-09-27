@@ -84,6 +84,32 @@ class Lazy {
     };
   }
 
+  flatten(iterator = values){
+    return this._create(Lazy.flatten(iterator))
+  }
+
+  static flatten(iterator){
+    return function createFlatten({next, active}){
+      return {
+        next: async function invokeFlatten (val, index){
+          console.log('flatten ' )
+          console.log(JSON.stringify(index))
+          if(active.call()){
+            const iterable = await iterator(val);
+            let i = 0;
+            for(const v of iterable){
+              if(active.call()){
+                await next(v, [...index, i++])
+              }else{
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   takeWhile(predicate) {
     if (typeof predicate === 'string') {
       predicate= createPropertyFilter(predicate);
@@ -434,18 +460,20 @@ class Lazy {
     };
   }
 
-  takeLast() {
-    return this._create(Lazy.takeLast());
+  takeLast(n) {
+    return this._create(Lazy.takeLast(n));
   }
 
-  static takeLast() {
+  static takeLast(n = 1) {
     return function createTakeLast({ active, resolve, }) {
-      let last;
+      const tail = [];
       return {
-        resolve: function resolveTakeLast() { resolve(last); },
+        resolve: function resolveTakeLast() {
+          resolve(tail.slice(tail.length-n, tail.length));
+        },
         next: async function applyTakeLast(val) {
           if (active.call()) {
-            last = val;
+            tail.push(val);
           }
         },
       };

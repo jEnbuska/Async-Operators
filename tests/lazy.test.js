@@ -9,20 +9,23 @@ async function sleep(time, result) {
 // TEST 'takeWhile'
 describe('lazy', async () => {
 
-  test('takeWhile parallel', async function(){
-    const result = await lazy()
+  test('reduce synchronous', async function () {
+    const [ first, second, ]= await lazy()
+      .resolve()
+      .reduce()
+      .invoke(sleep(30, 30), sleep(20, 20));
+    expect(first).toBe(30);
+    expect(second).toBe(20);
+  });
+
+  test('reduce parallel', async function () {
+    const [ first, second, ]= await lazy()
       .parallel()
       .resolve()
-      .takeWhile(({age}) => age < 50)
       .reduce()
-      .invoke(
-        sleep(30, { name: 'John', age: 25, }),
-        sleep(20, { name: 'John', age: 20, }), // 2
-        sleep(15, { name: 'Lisa', age: 30, }), // 1
-        sleep(30, { name: 'Kim', age: 40, }),
-        sleep(20, { name: 'Ted', age: 50, }), // 3
-      );
-    expect(result).toEqual([ { name: 'Lisa', age: 30, }, { name: 'John', age: 20, }, ]);
+      .invoke(sleep(30, 30), sleep(20, 20));
+    expect(first).toBe(20);
+    expect(second).toBe(30);
   });
 
   test('takeWhile synchronous', async function(){
@@ -40,13 +43,28 @@ describe('lazy', async () => {
     expect(result).toEqual([ { name: 'John', age: 25, }, { name: 'John', age: 20, }, { name: 'Lisa', age: 30, },{ name: 'Kim', age: 40, }]);
   });
 
+  test('takeWhile parallel', async function(){
+    const result = await lazy()
+      .parallel()
+      .resolve()
+      .takeWhile(({age}) => age < 50)
+      .reduce()
+      .invoke(
+        sleep(30, { name: 'John', age: 25, }),
+        sleep(20, { name: 'John', age: 20, }), // 2
+        sleep(15, { name: 'Lisa', age: 30, }), // 1
+        sleep(30, { name: 'Kim', age: 40, }),
+        sleep(20, { name: 'Ted', age: 50, }), // 3
+      );
+    expect(result).toEqual([ { name: 'Lisa', age: 30, }, { name: 'John', age: 20, }, ]);
+  });
+
   test('where synchronous', async function () {
     const [ first, second, third, ]= await lazy()
       .resolve()
       .where({ a: 1, })
       .reduce()
       .invoke(sleep(30, { a: 1, b: 1, }), sleep(20, { a: 1, b: 2, }), sleep(25, { a: 2, b: 1, }));
-
     expect(first).toEqual({ a: 1, b: 1, });
     expect(second).toEqual({ a: 1, b: 2, });
     expect(third).toBeUndefined();
@@ -58,7 +76,6 @@ describe('lazy', async () => {
       .where({ a: 1, })
       .reduce()
       .invoke(sleep(30, { a: 1, b: 1, }), sleep(20, { a: 1, b: 2, }), sleep(25, { a: 2, b: 1, }));
-
     expect(first).toEqual({ a: 1, b: 2, });
     expect(second).toEqual({ a: 1, b: 1, });
     expect(third).toBeUndefined();
@@ -86,15 +103,6 @@ describe('lazy', async () => {
 
     expect(first).toEqual({ a: 1, b: 1, });
     expect(second).toBeUndefined();
-  });
-
-  test('reduce synchronous', async function () {
-    const [ first, second, ]= await lazy()
-      .resolve()
-      .reduce()
-      .invoke(sleep(30, 30), sleep(20, 20));
-    expect(first).toBe(30);
-    expect(second).toBe(20);
   });
 
   test('take synchronous', async function () {
@@ -127,9 +135,9 @@ describe('lazy', async () => {
     const result = await lazy()
       .parallel()
       .resolve()
-      .takeLast()
-      .invoke(sleep(30, 30), sleep(20, 20));
-    expect(result).toBe(30);
+      .takeLast(2)
+      .invoke(sleep(30, 30), sleep(20, 20), sleep(40, 40), sleep(35, 35));
+    expect(result).toEqual([35, 40]);
   });
 
   test('map', async function () {
@@ -148,7 +156,7 @@ describe('lazy', async () => {
       .scan((acc = {}, next) => Object.assign(acc, { [next]: true, }))
       .takeLast()
       .invoke(sleep(30, 30), sleep(20, 20));
-    expect(result).toEqual({ 30: true, 20: true, });
+    expect(result).toEqual([{ 30: true, 20: true, }]);
     const result2 = await lazy()
       .resolve()
       .scan((acc = {}, next) => ({ ...acc, [next]: true, }))
@@ -197,6 +205,19 @@ describe('lazy', async () => {
     expect(result).toBe(50);
   });
 
+  test('distinctBy synchronous', async function () {
+    const result = await lazy()
+      .resolve()
+      .distinctBy(it => it.name)
+      .reduce()
+      .invoke(
+        sleep(30, { name: 'John', age: 25, }),
+        sleep(20, { name: 'John', age: 20, }),
+        sleep(15, { name: 'Lisa', age: 30, })
+      );
+    expect(result).toEqual([ { name: 'John', age: 25, }, { name: 'Lisa', age: 30, }, ]);
+  });
+
   test('distinctBy parallel', async function () {
     const result = await lazy()
       .parallel()
@@ -223,6 +244,21 @@ describe('lazy', async () => {
         sleep(15, { name: 'Lisa', age: 30, })
       );
     expect(result).toEqual([ { name: 'Lisa', age: 30, }, { name: 'John', age: 25, }, ]);
+  });
+
+
+  test('filter synchronous', async function () {
+    const result = await lazy()
+      .parallel()
+      .resolve()
+      .filter('age')
+      .reduce()
+      .invoke(
+        sleep(30, { name: 'John', age: undefined, }),
+        sleep(20, { name: 'John', age: 0, }),
+        sleep(15, { name: 'Lisa', age: 30, })
+      );
+    expect(result).toEqual([ { name: 'Lisa', age: 30, }, ]);
   });
 
   test('peek parallel', async function () {
@@ -327,17 +363,14 @@ describe('lazy', async () => {
     ]);
   });
 
-  test('nested parallel ordered', async function () {
+  test('sequential parallel ordered', async function () {
     const result = await lazy()
       .parallel()
       .resolve()
       .pick('a', 'b')
       .ordered()
       .parallel()
-      .map(next => {
-        console.log(20-next.a)
-        return sleep(20-next.a, next)
-      })
+      .map(next => sleep(20-next.a, next))
       .ordered()
       .reduce()
       .invoke(
@@ -357,4 +390,62 @@ describe('lazy', async () => {
       { a: 16, b: 17, },
     ]);
   });
+
+  test('flatten synchronous',async function(){
+    const result = await lazy()
+      .flatten()
+      .reduce()
+      .invoke([[1,2,3], [4,3,1]], [[3,2,1], [2,2,2]]);
+    expect(result).toEqual([[1,2,3], [4,3,1],[3,2,1],[2,2,2]])
+    const result2 = await lazy()
+      .flatten()
+      .flatten()
+      .reduce()
+      .invoke([[1,2,3], [4,3,1]], [[3,2,1], [2,2,2]]);
+    expect(result2).toEqual([1,2,3, 4,3,1,3,2,1,2,2,2])
+  })
+
+  test('flatten parallel',async function(){
+    const result = await lazy()
+      .parallel()
+      .resolve()
+      .flatten()
+      .reduce()
+      .invoke(sleep(5, [[1,2,3], [4,3,1]]), sleep(1, [[3,2,1], [2,2,2]]));
+    expect(result).toEqual([[3,2,1],[2,2,2], [1,2,3], [4,3,1]]);
+
+    const result2 = await lazy()
+      .parallel()
+      .resolve()
+      .flatten()
+      .parallel()
+      .resolve()
+      .flatten()
+      .reduce()
+      .invoke(sleep(20, [sleep(30,[1,2,3]), sleep(0, [4,3,1])]), sleep(10, [sleep(5, [3,2,1]), sleep(25, [2,2,2])]));
+    expect(result2).toEqual([3,2,1, 4,3,1,2,2,2, 1,2,3])
+  })
+
+  test('flatten parallel ordered',async function(){
+    const result = await lazy()
+      .parallel()
+      .resolve()
+      .flatten()
+      .ordered()
+      .reduce()
+      .invoke(sleep(5, [[1,2,3], [4,3,1]]), sleep(1, [[3,2,1], [2,2,2]]));
+    expect(result).toEqual([[1,2,3], [4,3,1], [3,2,1],[2,2,2], ]);
+
+    const result2 = await lazy()
+      .parallel()
+      .resolve()
+      .flatten()
+      .parallel()
+      .resolve()
+      .flatten()
+      .ordered()
+      .reduce()
+      .invoke(sleep(20, [sleep(30,[1,2,3]), sleep(0, [4,3,1])]), sleep(10, [sleep(5, [3,2,1]), sleep(25, [2,2,2])]));
+    expect(result2).toEqual([1,2,3,4,3,1,3,2,1,2,2,2])
+  })
 });
