@@ -4,7 +4,6 @@
  */
 import And from './CompositeAnd';
 
-// Create takeWhile
 // Create share
 // Check sanity of middlewares on invoke
 // Create flatten -> (index -> [i, j, k] ...)
@@ -38,7 +37,7 @@ class Lazy {
     const { middlewares, } = this;
     let output = NOT_SET;
     let tail = { active: And(), resolve(result) { output = result; }, };
-    for (let i = middlewares.length-1; i>0; i--) {
+    for (let i = middlewares.length-1; i>=0; i--) {
       const { active = tail.active, resolve = tail.resolve, next, }= { ...middlewares[i](tail), };
       tail = { active, resolve, next, };
     }
@@ -54,8 +53,7 @@ class Lazy {
   }
 
   ordered() {
-    if (this.middlewares.some(mv => mv.name==='createParallel')
-      && this.middlewares.every(mv => mv.name!=='createOrdered')) {
+    if (this.middlewares.some(mv => mv.name==='createParallel')) {
       return this._create(Lazy.ordered());
     }
     return this;
@@ -100,7 +98,7 @@ class Lazy {
       return {
         active,
         next: async function applyTakeWhile(val, index) {
-          if (take = (await predicate(val) && active())) {
+          if (take = (await predicate(val) && active.call())) {
             await next(val, index);
           }
         },
@@ -133,7 +131,8 @@ class Lazy {
       return {
         next: async function applyResolve(val, index) {
           if (active.call()) {
-            await next(await val, index);
+            val = await val;
+            await next(val, index);
           }
         },
       };
@@ -141,9 +140,6 @@ class Lazy {
   }
 
   parallel() {
-    if (this.middlewares.length) {
-      throw new Error('Parallel must be first middleware of lazy operators');
-    }
     return this._create(Lazy.parallel());
   }
 
@@ -256,9 +252,9 @@ class Lazy {
 
   static where(matcher) {
     const matchEntries = entries(matcher);
-    return function createMatcher({ active, next, }) {
+    return function createWhere({ active, next, }) {
       return {
-        next: async function applyMatcher(val, index) {
+        next: async function applyWhere(val, index) {
           if (active.call()) {
             for (const e of matchEntries) {
               if (val[e[0]] !== e[1]) {
@@ -339,8 +335,9 @@ class Lazy {
           if (active.call()) {
             if (!await predicate(val)) {
               take = false;
+            }else{
+              await next(val, index);
             }
-            await next(val, index);
           }
         },
       };

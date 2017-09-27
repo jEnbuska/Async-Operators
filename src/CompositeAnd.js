@@ -1,5 +1,5 @@
-export default function And(predicate) {
-  return new CompositeAnd(predicate);
+export default function And(predicate, previous) {
+  return new CompositeAnd(predicate, previous);
 }
 
 class CompositeAnd {

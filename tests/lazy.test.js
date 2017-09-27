@@ -5,12 +5,39 @@ async function sleep(time, result) {
     res(result);
   }, time));
 }
-// TEST 'skip'
+
+// TEST 'takeWhile'
 describe('lazy', async () => {
-  test('object as keys', async function () {
-    const obj = {};
-    obj[([ 1, ])] = 1;
-    obj[([ 1, 2, ])] = 2;
+
+  test('takeWhile parallel', async function(){
+    const result = await lazy()
+      .parallel()
+      .resolve()
+      .takeWhile(({age}) => age < 50)
+      .reduce()
+      .invoke(
+        sleep(30, { name: 'John', age: 25, }),
+        sleep(20, { name: 'John', age: 20, }), // 2
+        sleep(15, { name: 'Lisa', age: 30, }), // 1
+        sleep(30, { name: 'Kim', age: 40, }),
+        sleep(20, { name: 'Ted', age: 50, }), // 3
+      );
+    expect(result).toEqual([ { name: 'Lisa', age: 30, }, { name: 'John', age: 20, }, ]);
+  });
+
+  test('takeWhile synchronous', async function(){
+    const result = await lazy()
+      .resolve()
+      .takeWhile(({age}) => age < 50)
+      .reduce()
+      .invoke(
+        sleep(30, { name: 'John', age: 25, }),
+        sleep(20, { name: 'John', age: 20, }), // 2
+        sleep(15, { name: 'Lisa', age: 30, }), // 1
+        sleep(30, { name: 'Kim', age: 40, }),
+        sleep(20, { name: 'Ted', age: 50, }), // 3
+      );
+    expect(result).toEqual([ { name: 'John', age: 25, }, { name: 'John', age: 20, }, { name: 'Lisa', age: 30, },{ name: 'Kim', age: 40, }]);
   });
 
   test('where synchronous', async function () {
@@ -280,6 +307,37 @@ describe('lazy', async () => {
       .parallel()
       .resolve()
       .pick('a', 'b')
+      .ordered()
+      .reduce()
+      .invoke(
+        sleep(30, { a: 1, b: 2, c: 3, }),
+        sleep(30, { a: 4, b: 5, c: 6, }),
+        sleep(20, { a: 7, b: 8, c: 9, }),
+        sleep(15, { a: 10, b: 11, c: 12, }),
+        sleep(30, { a: 13, b: 14, c: 15, }),
+        sleep(20, { a: 16, b: 17, c: 18, }),
+      );
+    expect(result).toEqual([
+      { a: 1, b: 2, },
+      { a: 4, b: 5, },
+      { a: 7, b: 8, },
+      { a: 10, b: 11, },
+      { a: 13, b: 14, },
+      { a: 16, b: 17, },
+    ]);
+  });
+
+  test('nested parallel ordered', async function () {
+    const result = await lazy()
+      .parallel()
+      .resolve()
+      .pick('a', 'b')
+      .ordered()
+      .parallel()
+      .map(next => {
+        console.log(20-next.a)
+        return sleep(20-next.a, next)
+      })
       .ordered()
       .reduce()
       .invoke(
