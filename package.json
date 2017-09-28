@@ -2,7 +2,9 @@
   "name": "none-dux",
   "description": "lazy list iteration",
   "main": "lib/index.js",
-  "engines" : { "node" : ">=8" },
+  "engines": {
+    "node": ">=8"
+  },
   "version": "0.0.0",
   "author": "jEnbuska <joonaenb@gmail.com>",
   "license": "ISC",
@@ -14,13 +16,10 @@
   "scripts": {
     "lint-fix": "eslint --ext .jsx --ext .js . --fix",
     "prepublish": "npm run build",
-    "build": "cross-env NODE_ENV=production",
-    "build-dev": "webpack",
     "test": "jest",
     "test:watch": "npm run test -- --watch"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "peerDependencies": {},
   "devDependencies": {
     "babel": "^6.23.0",
@@ -28,19 +27,12 @@
     "babel-eslint": "^7.2.1",
     "babel-preset-env": "^1.6.0",
     "babel-preset-stage-0": "^6.24.1",
-    "clean-webpack-plugin": "^0.1.16",
-    "cross-env": "^5.0.1",
     "eslint": "^3.13.0",
-    "eslint-config-airbnb": "^13.0.0",
     "eslint-plugin-import": "^2.2.0",
     "eslint-plugin-jest": "^20.0.3",
-    "eslint-plugin-jsx-a11y": "^2.2.3",
     "jest": "^20.0.4",
     "jest-cli": "^20.0.4",
-    "nano-time": "^1.0.0",
-    "rollup": "^0.43.0",
-    "uglifyjs-webpack-plugin": "^0.4.6",
-    "webpack": "^2.6.1"
+    "nano-time": "^1.0.0"
   },
   "false": {}
 }

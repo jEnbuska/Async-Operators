@@ -1,23 +1,26 @@
-export default function And(predicate, previous) {
-  return new CompositeAnd(predicate, previous);
-}
-
 class CompositeAnd {
 
-  constructor(predicate = returnTrue, previous=returnTrue) {
+  static id = 0;
+
+  constructor (predicate = returnTrue, previous) {
+    this.id = CompositeAnd.id++;
     this.predicate = predicate;
     this.previous = previous;
   }
 
-  concat(predicate) {
+  concat (predicate) {
     return And(predicate, this);
   }
 
-  call() {
-    return this.predicate() && this.previous.call();
+  call () {
+    return this.predicate() && (!this.previous || this.previous.call());
   }
 }
 
-function returnTrue() {
+function returnTrue () {
   return true;
+}
+
+export default function And (predicate, previous) {
+  return new CompositeAnd(predicate, previous);
 }
