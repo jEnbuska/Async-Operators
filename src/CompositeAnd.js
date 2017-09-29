@@ -17,7 +17,7 @@ class CompositeAnd {
   }
 }
 
-function returnTrue () {
+export function returnTrue () {
   return true;
 }
 

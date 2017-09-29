@@ -2,7 +2,7 @@
 /**
  * Created by joonaenbuska on 24/07/2017.
  */
-import And from './CompositeAnd';
+import And, { returnTrue, } from './CompositeAnd';
 import Or from './CompositeOr';
 
 // Rename 'create' to 'create'
@@ -35,29 +35,29 @@ class Lazy {
     return new Lazy([ ...this.middlewares, operation, ]);
   }
 
-  async propose (...vals) {
+  async propose (...values) {
     if (!this.activated) {
       throw new Error('Invoking "propose" on non created instance of Lazy');
     }
     const [ tail, ] = this.middlewares;
-    const { resolve, nextMiddleware, upStreamActive, }=  tail({}, true);
-    for (let i = 0; i<vals.length && upStreamActive.call(); i++) {
-      await nextMiddleware(vals[i], [ i, ], And());
+    const { resolve, nextMiddleware, upStreamActive, }=  tail({ nextMiddleware: NOT_SET, });
+    for (let i = 0; i<values.length && upStreamActive.call(); i++) {
+      await nextMiddleware(values[i], [ i, ], And());
     }
     await resolve();
   }
 
-  create () {
+  share () {
     const { middlewares, } = this;
     const followers = {};
     const stem = {
       followers,
       observed: Or(() => values(followers).some(follower => follower.observed.call())),
       upStreamActive: And(),
-      resolve: async function createdResolve () {
+      resolve: async function sharedResolve () {
         await Promise.all(values(followers).filter(it => it.resolve).map(it => it.resolve()));
       },
-      nextMiddleware: async function createdNext (val, order, taskActive) {
+      nextMiddleware: async function sharedNext (val, order, taskActive) {
         if (taskActive.call()) {
           await Promise.all(values(followers)
             .map(follower => follower.nextMiddleware(val, order, taskActive)));
@@ -65,13 +65,13 @@ class Lazy {
       },
     };
     const pipe = middlewares.slice().reverse().reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), stem);
-    return new Lazy([ Lazy.create(pipe), ], true);
+    return new Lazy([ Lazy.share(pipe), ], true);
   }
 
-  static create (stem) {
+  static share (stem) {
     let count = 0;
-    return function createShare ({ upStreamActive, resolve, nextMiddleware, observed = Or(), }, proposal) {
-      if (!proposal) {
+    return function useShared ({ upStreamActive, resolve, nextMiddleware, observed = Or(), }) {
+      if (nextMiddleware!==NOT_SET) {
         stem.followers[count++] = { resolve, nextMiddleware, upStreamActive, observed, };
       }
       return {
@@ -83,10 +83,10 @@ class Lazy {
     };
   }
 
-  pull (callbacks = { onNext: emptyFunction, onResolve: emptyFunction, }) {
-    const { onNext, onResolve, } = callbacks;
+  pull (callbacks = {}) {
+    const { onNext= emptyFunction, onResolve = emptyFunction, } = callbacks;
     const { middlewares, } = this;
-    const observing = Or(() => true);
+    const observing = Or(returnTrue);
     const unObserve= () => observing.retire();
     let tail = {
       resolve: async function resolvePull () {
@@ -102,19 +102,6 @@ class Lazy {
     };
     middlewares.slice().reverse().reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), tail);
     return unObserve;
-  }
-
-  static pull (callback) {
-    return function createPull ({ observed = Or(returnTrue), }) {
-      const unObserve = () => observed.retire();
-      return {
-        nextMiddleware: function invokePull (val, taskActive) {
-          if (observed.call() && taskActive.call()) {
-            callback(val, unObserve);
-          }
-        },
-      };
-    };
   }
 
   peek (callback = console.log) {
@@ -140,13 +127,14 @@ class Lazy {
 
   async push (...sources) {
     const { middlewares, } = this;
-    let output = NOT_SET;
+    let output = undefined;
     let pushResolver  = {
-      observed: Or(() => true),
+      observed: Or(returnTrue),
       upStreamActive: And(),
       resolve (result) {
         output = result;
       },
+      nextMiddleware: NOT_SET,
     };
     const { upStreamActive, nextMiddleware, resolve, } = middlewares
       .slice()
@@ -156,9 +144,6 @@ class Lazy {
       await nextMiddleware(sources[i], [ i, ], And());
     }
     await resolve();
-    if (output=== NOT_SET) {
-      return Lazy.defaults[middlewares[middlewares.length-1].name];
-    }
     return output;
   }
 
@@ -206,10 +191,7 @@ class Lazy {
   }
 
   ordered () {
-    if (this.middlewares.some(mv => mv.name==='createParallel')) {
-      return this._create(Lazy.ordered());
-    }
-    return this;
+    return this._create(Lazy.ordered());
   }
 
   static ordered () {
@@ -780,12 +762,4 @@ function sleep (ms) {
       resolve();
     }, ms);
   });
-}
-
-function returnFalse () {
-  return false;
-}
-
-function returnTrue () {
-  return true;
 }

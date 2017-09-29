@@ -22,7 +22,7 @@ class CompositeOr {
   }
 }
 
-function returnFalse () {
+export function returnFalse () {
   return false;
 }
 
