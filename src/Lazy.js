@@ -3,15 +3,20 @@
  * Created by joonaenbuska on 24/07/2017.
  */
 import And from './CompositeAnd';
+import Or from './CompositeOr';
 
-// Create pull (pull is catcher and completer)
-// Create put
+// Rename 'create' to 'create'
+// 'create'/'create' should be parallel
+// Replace log with peek with default value of 'log'. If string set as prefix of log
+// Create pull (pull is catcher and completer) with CompositeOr of 'observed'
+// Create next (put/push)
 // upstreamActive --> Include any pullers
-// Rename resolve to await -> create resolve (final block like reduce or sum)
 // Check sanity of middlewares on invoke
 // middleware 'resolve' might be better of with returning the value instead of using callback
-// Create groupBy
-// test multiple share
+// test multiple create / (create)
+// create memoLast, implements (onPull) with lastValue
+// Create unObserve
+// Create 'reject'
 
 const NOT_SET = Symbol('NOT_SET');
 const { entries, values, hasOwnProperty: has, } = Object;
@@ -21,93 +26,134 @@ export default function CreateLazy () {
 
 class Lazy {
 
-  constructor (middlewares = []) {
+  constructor (middlewares = [], activated) {
     this.middlewares = middlewares;
+    this.activated = activated;
   }
 
   _create (operation) {
     return new Lazy([ ...this.middlewares, operation, ]);
   }
 
-  share () {
-    const { middlewares, } = this;
-    const followers = {};
-    let tail = {
-      upStreamActive: And(),
-      resolve: async function sharedResolve () {
-        for (const nextMiddleware of values(followers)) {
-          if (nextMiddleware.resolve) {
-            await nextMiddleware.resolve();
-          }
-        }
-      },
-      nextMiddleware: async function sharedNext (val, order, taskActive) {
-        if (taskActive.call())
-          for (const follower of values(followers)) {
-            await follower.nextMiddleware(val, order, taskActive);
-          }
-      },
-    };
-    for (let i = middlewares.length-1; i>=0; i--) {
-      const { upStreamActive = tail.upStreamActive, resolve = tail.resolve, nextMiddleware = tail.nextMiddleware, } = { ...middlewares[i](tail), };
-      tail = { upStreamActive, resolve, nextMiddleware, };
+  async propose (...vals) {
+    if (!this.activated) {
+      throw new Error('Invoking "propose" on non created instance of Lazy');
     }
-    const { upStreamActive, nextMiddleware, resolve, } = tail;
-    return new Lazy([ Lazy.share({ upStreamActive, nextMiddleware, resolve, followers, }), ]);
+    const [ tail, ] = this.middlewares;
+    const { resolve, nextMiddleware, upStreamActive, }=  tail({}, true);
+    for (let i = 0; i<vals.length && upStreamActive.call(); i++) {
+      await nextMiddleware(vals[i], [ i, ], And());
+    }
+    await resolve();
   }
 
-  static share (stem) {
+  create () {
+    const { middlewares, } = this;
+    const followers = {};
+    const stem = {
+      followers,
+      observed: Or(() => values(followers).some(follower => follower.observed.call())),
+      upStreamActive: And(),
+      resolve: async function createdResolve () {
+        await Promise.all(values(followers).filter(it => it.resolve).map(it => it.resolve()));
+      },
+      nextMiddleware: async function createdNext (val, order, taskActive) {
+        if (taskActive.call()) {
+          await Promise.all(values(followers)
+            .map(follower => follower.nextMiddleware(val, order, taskActive)));
+        }
+      },
+    };
+    const pipe = middlewares.slice().reverse().reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), stem);
+    return new Lazy([ Lazy.create(pipe), ], true);
+  }
+
+  static create (stem) {
     let count = 0;
-    return function createShare ({ upStreamActive, resolve, nextMiddleware, }) {
-      stem.followers[count++] = { resolve, nextMiddleware, upStreamActive, };
+    return function createShare ({ upStreamActive, resolve, nextMiddleware, observed = Or(), }, proposal) {
+      if (!proposal) {
+        stem.followers[count++] = { resolve, nextMiddleware, upStreamActive, observed, };
+      }
       return {
-        upStreamActive,
+        observed,
+        upStreamActive: stem.upStreamActive,
         nextMiddleware: stem.nextMiddleware,
         resolve: stem.resolve,
       };
     };
   }
 
-  conclude (callback) {
-    this._create(Lazy.conclude(callback));
-  }
-
-  static conclude (callback) {
-    return function createConclude ({ next, }) {
-      return {
-
-      };
+  pull (callbacks = { onNext: emptyFunction, onResolve: emptyFunction, }) {
+    const { onNext, onResolve, } = callbacks;
+    const { middlewares, } = this;
+    const observing = Or(() => true);
+    const unObserve= () => observing.retire();
+    let tail = {
+      resolve: async function resolvePull () {
+        await onResolve(unObserve);
+      },
+      observed: observing,
+      upStreamActive: And(),
+      nextMiddleware: async function invokePull (val, order, taskActive) {
+        if (observing.call() && taskActive.call()) {
+          onNext(val, unObserve);
+        }
+      },
     };
+    middlewares.slice().reverse().reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), tail);
+    return unObserve;
   }
 
-  log (prefix, logger = console.log) {
-    return this._create(Lazy.log(prefix, logger));
-  }
-
-  static log (prefix, logger) {
-    return function createLog ({ nextMiddleware, }) {
+  static pull (callback) {
+    return function createPull ({ observed = Or(returnTrue), }) {
+      const unObserve = () => observed.retire();
       return {
-        nextMiddleware: function invokeLog (val, order, taskActive) {
-          logger(`${prefix}: ${val}`);
-          return nextMiddleware(val, order, taskActive);
+        nextMiddleware: function invokePull (val, taskActive) {
+          if (observed.call() && taskActive.call()) {
+            callback(val, unObserve);
+          }
         },
       };
     };
   }
 
-  async invoke (...sources) {
+  peek (callback = console.log) {
+    if (typeof callback === 'string') {
+      const prefix = callback;
+      callback = val => console.log(`${prefix}:${val}`);
+    }
+    return this._create(Lazy.peek(callback));
+  }
+
+  static peek (callback) {
+    return function createPeek ({ upStreamActive, nextMiddleware, observed = Or(), }) {
+      return {
+        nextMiddleware: function invokeCreate (val, order, taskActive) {
+          if (observed.call() && taskActive.call() && upStreamActive.call()) {
+            callback(val);
+            return nextMiddleware(val, order, taskActive);
+          }
+        },
+      };
+    };
+  }
+
+  async push (...sources) {
     const { middlewares, } = this;
     let output = NOT_SET;
-    let tail = { upStreamActive: And(), resolve (result) {
-      output = result;
-    }, };
-    for (let i = middlewares.length-1; i>=0; i--) {
-      const { upStreamActive = tail.upStreamActive, resolve = tail.resolve, nextMiddleware = tail.nextMiddleware, } = middlewares[i](tail);
-      tail = { upStreamActive, resolve, nextMiddleware, };
-    }
-    const { upStreamActive, nextMiddleware, resolve, } = tail;
+    let pushResolver  = {
+      observed: Or(() => true),
+      upStreamActive: And(),
+      resolve (result) {
+        output = result;
+      },
+    };
+    const { upStreamActive, nextMiddleware, resolve, } = middlewares
+      .slice()
+      .reverse()
+      .reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), pushResolver);
     for (let i = 0; i<sources.length && upStreamActive.call(); i++) {
-      await nextMiddleware(sources[i], [ i, ], And(returnTrue));
+      await nextMiddleware(sources[i], [ i, ], And());
     }
     await resolve();
     if (output=== NOT_SET) {
@@ -124,14 +170,35 @@ class Lazy {
   }
 
   static latestBy (selector) {
-    return function createLatestBy ({ nextMiddleware, upStreamActive, }) {
+    return function createLatestBy ({ nextMiddleware, upStreamActive, observed = Or(), }) {
       const previous = {};
       return {
         nextMiddleware: async function invokeLatestBy (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             const key = await selector(val);
             const selectorIdentity = previous[key] = has.call(previous, key) ? previous[key] + 1 : 0;
             await nextMiddleware(val, order, taskActive.concat(() => selectorIdentity === previous[key]));
+          }
+        },
+      };
+    };
+  }
+
+  debounceTime (ms) {
+    return this._create(Lazy.debounceTime(ms));
+  }
+
+  static debounceTime (ms) {
+    return function createDebounceTime ({ nextMiddleware, upStreamActive, observed, }) {
+      let requests = 0;
+      return {
+        nextMiddleware: async function invokeDebounceTime (val, order, taskActive) {
+          if (observed.call() && taskActive.call() && upStreamActive.call()) {
+            const request = ++requests;
+            await sleep(ms);
+            if (request === requests && observed.call() && taskActive.call() && upStreamActive.call()) {
+              await nextMiddleware(val, order, taskActive);
+            }
           }
         },
       };
@@ -146,7 +213,7 @@ class Lazy {
   }
 
   static ordered () {
-    return function createOrdered ({ nextMiddleware, upStreamActive, resolve, }) {
+    return function createOrdered ({ nextMiddleware, upStreamActive, resolve, observed = Or(), }) {
       const tasks = {};
       return {
         resolve: async function resolveOrdered () {
@@ -164,7 +231,7 @@ class Lazy {
           }
         },
         nextMiddleware: async function invokeOrdered (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             tasks[order] = () => taskActive.call() && nextMiddleware(val, order, taskActive);
           }
         },
@@ -177,15 +244,14 @@ class Lazy {
   }
 
   static flatten (iterator) {
-    return function createFlatten ({ nextMiddleware, upStreamActive, }) {
+    return function createFlatten ({ nextMiddleware, upStreamActive, observed = Or(), }) {
       return {
         nextMiddleware: async function invokeFlatten (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
-
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             const iterable = await iterator(val);
             let i = 0;
             for (const v of iterable) {
-              if (upStreamActive.call() && taskActive.call()) {
+              if (observed.call() && upStreamActive.call() && taskActive.call()) {
                 await nextMiddleware(v, [ ...order, i++, ], taskActive);
               } else {
                 break;
@@ -205,14 +271,16 @@ class Lazy {
   }
 
   static takeWhile (predicate) {
-    return function createTakeWhile ({ upStreamActive, nextMiddleware, }) {
+    return function createTakeWhile ({ upStreamActive, nextMiddleware, observed = Or(), }) {
       let take = true;
       upStreamActive = upStreamActive.concat(() => take);
       return {
         upStreamActive,
         nextMiddleware: async function invokeTakeWhile (val, order, taskActive) {
-          if (take = (await predicate(val) && upStreamActive.call() && taskActive.call())) {
-            await nextMiddleware(val, order, taskActive);
+          if (take && (take = await predicate(val))) {
+            if (observed.call() && upStreamActive.call() && taskActive.call()) {
+              await nextMiddleware(val, order, taskActive);
+            }
           }
         },
       };
@@ -224,10 +292,10 @@ class Lazy {
   }
 
   static map (mapper) {
-    return function createMap ({ nextMiddleware, upStreamActive, }) {
+    return function createMap ({ nextMiddleware, upStreamActive, observed = Or(),  }) {
       return {
         nextMiddleware: async function invokeMap (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             await nextMiddleware(await mapper(val), order, taskActive);
           }
         },
@@ -240,10 +308,10 @@ class Lazy {
   }
 
   static awaitResolved () {
-    return function createAwaitResolved ({ nextMiddleware, upStreamActive, }) {
+    return function createAwaitResolved ({ nextMiddleware, upStreamActive, observed = Or(), }) {
       return {
         nextMiddleware: async function invokeAwaitResolved (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             val = await val;
             await nextMiddleware(val, order, taskActive);
           }
@@ -257,17 +325,17 @@ class Lazy {
   }
 
   static parallel () {
-    return function createParallel ({ nextMiddleware, upStreamActive, resolve, }) {
+    return function createParallel ({ nextMiddleware, upStreamActive, resolve, observed = Or(), }) {
       const tasks = [];
       return {
         resolve: async function resolveParallel () {
           await Promise.all(tasks);
           if (resolve) {
-            return resolve();
+            await resolve();
           }
         },
         nextMiddleware: async function invokeParallel (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             tasks.push(nextMiddleware(val, order, taskActive));
           }
         },
@@ -281,11 +349,11 @@ class Lazy {
 
   static skip (count) {
     count = Number(count) || 0;
-    return function createSkip ({ upStreamActive, nextMiddleware, }) {
+    return function createSkip ({ upStreamActive, nextMiddleware, observed = Or(), }) {
       let total = 0;
       return {
         nextMiddleware: async function invokeSkip (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             if (total>=count) {
               await nextMiddleware(val, order, taskActive);
             } else {
@@ -303,10 +371,10 @@ class Lazy {
 
   static pick (keys) {
     const keySet = createSet(keys);
-    return function createPick ({ nextMiddleware, upStreamActive, }) {
+    return function createPick ({ nextMiddleware, upStreamActive, observed = Or(), }) {
       return {
         nextMiddleware: async function invokePick (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             val = entries(val)
               .filter(e => keySet[e[0]])
               .reduce(entriesToObject, {});
@@ -325,11 +393,11 @@ class Lazy {
   }
 
   static distinctBy (picker) {
-    return function createDistinctBy ({ nextMiddleware, upStreamActive, }) {
+    return function createDistinctBy ({ nextMiddleware, upStreamActive, observed = Or(), }) {
       const history = {};
       return {
         nextMiddleware: async function invokeDistinctBy (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             const key = await picker(val);
             if (!history[key]) {
               history[key] = true;
@@ -349,10 +417,10 @@ class Lazy {
   }
 
   static filter (predicate) {
-    return function createFilter ({ upStreamActive, nextMiddleware, }) {
+    return function createFilter ({ upStreamActive, nextMiddleware, observed = Or(), }) {
       return {
         nextMiddleware: async function invokeFilter (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call() && await predicate(val)) {
+          if (observed.call() && upStreamActive.call() && taskActive.call() && await predicate(val)) {
             await nextMiddleware(val, order, taskActive);
           }
         },
@@ -366,10 +434,10 @@ class Lazy {
 
   static where (matcher) {
     const matchEntries = entries(matcher);
-    return function createWhere ({ upStreamActive, nextMiddleware, }) {
+    return function createWhere ({ upStreamActive, nextMiddleware, observed = Or(),  }) {
       return {
         nextMiddleware: async function invokeWhere (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             for (const e of matchEntries) {
               if (val[e[0]] !== e[1]) {
                 return;
@@ -390,7 +458,7 @@ class Lazy {
   }
 
   static every (predicate) {
-    return function createEvery ({ upStreamActive, resolve, }) {
+    return function createEvery ({ upStreamActive, resolve, observed = Or(),  }) {
       let output = true;
       upStreamActive = upStreamActive.concat(() => output);
       return {
@@ -399,7 +467,7 @@ class Lazy {
         },
         upStreamActive,
         nextMiddleware: async function invokeEvery (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             const result = !!await predicate(val);
             output = result && output;
           }
@@ -416,7 +484,7 @@ class Lazy {
   }
 
   static some (predicate) {
-    return function createSome ({ upStreamActive, resolve, }) {
+    return function createSome ({ upStreamActive, resolve, observed = Or(),  }) {
       let output = false;
       upStreamActive = upStreamActive.concat(() => !output);
       return {
@@ -425,7 +493,7 @@ class Lazy {
           resolve(output);
         },
         nextMiddleware: async function invokeSome (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             const result = !!await predicate(val);
             output = result || output;
           }
@@ -442,13 +510,13 @@ class Lazy {
   }
 
   static takeUntil (predicate) {
-    return function createTakeUntil ({ upStreamActive, nextMiddleware, }) {
+    return function createTakeUntil ({ upStreamActive, nextMiddleware, observed = Or(), }) {
       let take = true;
       upStreamActive = upStreamActive.concat(() => take);
       return {
         upStreamActive,
         nextMiddleware: async function invokeTakeUntil (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             if (!await predicate(val)) {
               take = false;
             } else {
@@ -468,28 +536,11 @@ class Lazy {
   }
 
   static skipWhile (predicate) {
-    return function createSkipWhile ({ upStreamActive, nextMiddleware, }) {
+    return function createSkipWhile ({ upStreamActive, nextMiddleware, observed = Or(), }) {
       let take = false;
       return {
         nextMiddleware: async function invokeSkipWhile (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call() && (take || (take = !await predicate(val)))) {
-            await nextMiddleware(val, order, taskActive);
-          }
-        },
-      };
-    };
-  }
-
-  peek (callback) {
-    return this._create(Lazy.peek(callback));
-  }
-
-  static peek (callback) {
-    return function createPeek ({ nextMiddleware, upStreamActive, }) {
-      return {
-        nextMiddleware: async function invokePeek (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
-            await callback(val);
+          if (observed.call() && upStreamActive.call() && taskActive.call() && (take || (take = !await predicate(val)))) {
             await nextMiddleware(val, order, taskActive);
           }
         },
@@ -503,12 +554,12 @@ class Lazy {
   }
 
   static scan (scanner, acc) {
-    return function createScan ({ upStreamActive, nextMiddleware, }) {
+    return function createScan ({ upStreamActive, nextMiddleware, observed = Or(), }) {
       let innerAcc = acc;
       let futures = [];
       return {
         nextMiddleware: async function invokeScan (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             futures.push(async (input) => {
               const result = await scanner(input, val);
               innerAcc = result;
@@ -517,7 +568,7 @@ class Lazy {
             if (futures.length===1) {
               for (let i = 0; i<futures.length; i++) {
                 await futures[i](innerAcc);
-                if (!upStreamActive.call() && taskActive.call()) {
+                if (!observed.call() && upStreamActive.call() && taskActive.call()) {
                   break;
                 }
               }
@@ -535,13 +586,13 @@ class Lazy {
 
   static take (max) {
     max = Number(max) || 0;
-    return function createTake ({ upStreamActive, nextMiddleware, }) {
+    return function createTake ({ upStreamActive, nextMiddleware, observed = Or(), }) {
       let taken = 0;
       upStreamActive = upStreamActive.concat(() => taken < max);
       return {
         upStreamActive,
         nextMiddleware: async function invokeTake (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             taken++;
             await nextMiddleware(val, order, taskActive);
           }
@@ -555,14 +606,14 @@ class Lazy {
   }
 
   static takeLast (n = 1) {
-    return function createTakeLast ({ upStreamActive, resolve, }) {
+    return function createTakeLast ({ upStreamActive, resolve, observed = Or(), }) {
       const all = [];
       return {
         resolve: function resolveTakeLast () {
           resolve(all.slice(all.length-n, all.length));
         },
         nextMiddleware: async function invokeTakeLast (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             all.push(val);
           }
         },
@@ -575,14 +626,14 @@ class Lazy {
   }
 
   static sum () {
-    return function createSum ({ upStreamActive, resolve, }) {
+    return function createSum ({ upStreamActive, resolve, observed = Or(), }) {
       let total = 0;
       return {
         resolve: function resolveSum () {
           resolve(total);
         },
         nextMiddleware: async function invokeSum (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             total +=val;
           }
         },
@@ -595,7 +646,7 @@ class Lazy {
   }
 
   static reduce (reducer, acc) {
-    return function createReduce ({ upStreamActive, resolve, }) {
+    return function createReduce ({ upStreamActive, resolve, observed = Or(), }) {
       let output = acc;
       let futures = [];
       return {
@@ -603,7 +654,7 @@ class Lazy {
           return resolve(output);
         },
         nextMiddleware: async function invokeReduce (val, order, taskActive) {
-          if (upStreamActive.call() && taskActive.call()) {
+          if (observed.call() && upStreamActive.call() && taskActive.call()) {
             futures.push((result) => reducer(result, val, order, taskActive));
             if (futures.length===1) {
               for (let i = 0; i<futures.length; i++) {
@@ -631,7 +682,7 @@ class Lazy {
              try{
                await nextMiddleware(val, order, taskActive)
              }catch (err){
-               if(catcher && upStreamActive.call() && taskActive.call()){
+               if(catcher && observed.call() && upStreamActive.call() && taskActive.call()){
                  const result = await catcher({message, val, err, retries});
                  retry = result.retry;
                }
@@ -651,7 +702,7 @@ class Lazy {
         return {
           nextMiddleware: function(val, order, taskActive){ return nextMiddleware(val, order, taskActive) },
           catcher: async function invokeCatch(catchResult){
-            if(upStreamActive.call() && taskActive.call()){
+            if(observed.call() && upStreamActive.call() && taskActive.call()){
               return await handler(catchResult)
             }
             return {retry: false};
@@ -717,6 +768,18 @@ function orderComparator (a, b) {
     }
   }
   return 0;
+}
+
+function emptyFunction () {
+
+}
+
+function sleep (ms) {
+  return new Promise(function (resolve) {
+    setTimeout(function () {
+      resolve();
+    }, ms);
+  });
 }
 
 function returnFalse () {
