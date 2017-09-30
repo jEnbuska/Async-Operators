@@ -1,3 +1,4 @@
+/* eslint-disable semi */
 import lazy from '../src/Lazy';
 
 async function sleep (time, result) {
@@ -7,55 +8,13 @@ async function sleep (time, result) {
 }
 
 describe('lazy', async () => {
-  test('propose', async () => {
-    const peeks = [];
-    const instance= await lazy()
-      .parallel()
-      .peek(val => peeks.push(val))
-      .map(it => it*2)
-      .create();
-    const result = [];
-    let resolves = 0;
-    instance
-      .filter(it => it!==6)
-      .pull({
-        onNext (val, unObserve) {
-          unObserve();
-          result.push(val);
-        },
-        onResolve () {
-          resolves++;
-        },
-      });
-    await instance.propose(3);
-    await instance.propose(10);
-    await instance.propose(1);
-    expect(resolves).toBe(3);
-    expect(result).toEqual([ 20, ]);
-    expect(peeks).toEqual([ 3, 10, ]);
-  });
 
-  test('debounceTime', async () => {
-
-    const result =await  lazy()
-      .parallel()
-      .awaitResolved()
-      .debounceTime(10)
-      .sum()
-      .push(sleep(10, 5),
-        sleep(25, 9),
-        sleep(10, 6),
-        sleep(5, 1),
-        sleep(25, 30)
-      );
-    expect(result).toBe(6 + 30)
-  })
-  test('create simple', async () => {
+  test('share simple', async () => {
     const result0 = await lazy()
       .parallel()
       .awaitResolved()
       .map(it => it*2)
-      .create()
+      .share()
       .reduce()
       .push(
         sleep(10, 5),       // 2 ->  10
@@ -67,16 +26,13 @@ describe('lazy', async () => {
       );
     expect(result0).toEqual([ 2, 10, 6, 10, 20, 60, ]);
   });
-
-  test('create re-use', async() => {
-
+  test('share re-use', async() => {
     const instance = lazy()
       .parallel()
       .awaitResolved()
       .map(it =>  it*2)
-      .takeUntil(it => it<50)
-      .create();
-
+      .takeUntil(it => it>=50)
+      .share();
     const result = await instance
       .filter(it => it <15)
       .reduce()
@@ -90,17 +46,89 @@ describe('lazy', async () => {
       );
     expect(result).toEqual([ 2, 10, 6, 10, ]);
     const result2 = await instance
-          .reduce((acc, next) => [ ...acc, next, ], [])
-          .map(it => it*3)
-          .push(
-          sleep(10, 5),
-          sleep(15, 3),
-          sleep(25, 10),
-          sleep(20, 5),
-          sleep(5, 1),
-          sleep(25, 30)
-        );
+      .reduce((acc, next) => [ ...acc, next, ], [])
+      .push(
+        sleep(10, 5),
+        sleep(15, 3),
+        sleep(25, 10),
+        sleep(20, 5),
+        sleep(5, 1),
+        sleep(25, 30)
+      );
     expect(result2).toEqual([]);
+  });
+
+  test('share push', async() => {
+    const instance = lazy()
+      .parallel()
+      .awaitResolved()
+      .map(it =>  it*2)
+      .share();
+    const pulled = [];
+    await instance
+      .filter(it => it <15)
+      .pull({
+        onNext (val) {
+          pulled.push(val);
+        },
+      });
+    const sumOutput = await instance
+      .sum()
+      .push(
+        sleep(10, 5),       // 2 ->  10
+        sleep(15, 3),       // 3 ->  6
+        sleep(25, 10),    // 5 ->  20 -> skip
+        sleep(20, 5),     // 4 ->   10
+        sleep(5, 1),         // 1 ->  2
+        sleep(25, 30)   // 6 -> 60 -> skip
+      );
+    expect(pulled).toEqual([ 2, 10, 6, 10, ]);
+    expect(sumOutput).toBe(2*(5+3+10+5+1+30));
+  });
+
+  test('propose', async () => {
+    const peeks = [];
+    const instance= await lazy()
+      .parallel()
+      .peek(val => peeks.push(val))
+      .map(it => it*2)
+      .share();
+    const result = [];
+    let resolves = 0;
+    instance
+      .filter(it => it!==6)
+      .pull({
+        onNext (val, unObserve) {
+          unObserve();
+          result.push(val);
+        },
+        onResolve () {
+          resolves++;
+        },
+      });
+
+    await instance.propose(3);
+    await instance.propose(10);
+    await instance.propose(1);
+
+    expect(result).toEqual([ 20, ]);
+    expect(peeks).toEqual([ 3, 10, ]);
+    expect(resolves).toBe(1);
+  });
+
+  test('debounceTime', async () => {
+    const result =await  lazy()
+      .parallel()
+      .awaitResolved()
+      .debounceTime(10)
+      .sum()
+      .push(sleep(10, 5),
+        sleep(25, 9),
+        sleep(10, 6),
+        sleep(5, 1),
+        sleep(25, 30)
+      );
+    expect(result).toBe(6 + 30);
   });
 
   test('latestBy', async () => {
@@ -134,35 +162,99 @@ describe('lazy', async () => {
     expect(second).toBe(30);
   });
 
-  test('takeWhile synchronous', async () => {
-    const result = await lazy()
+  test('reduce reuse', async () => {
+    const instance = await lazy()
+      .parallel()
       .awaitResolved()
-      .takeWhile(({ age, }) => age < 50)
       .reduce()
-      .push(
-        sleep(30, { name: 'John', age: 25, }),
-        sleep(20, { name: 'John', age: 20, }), // 2
-        sleep(15, { name: 'Lisa', age: 30, }), // 1
-        sleep(30, { name: 'Kim', age: 40, }),
-        sleep(20, { name: 'Ted', age: 50, }), // 3
-      );
-    expect(result).toEqual([ { name: 'John', age: 25, }, { name: 'John', age: 20, }, { name: 'Lisa', age: 30, }, { name: 'Kim', age: 40, }, ]);
+      .share();
+
+    const result0 = await instance.push(sleep(30, 30), sleep(20, 20));
+    expect(result0).toEqual([ 20, 30, ]);
+
+    const result = await instance.push(sleep(30, 10), sleep(15, 15));
+    expect(result).toEqual([ 15, 10, ]);
   });
 
-  test('takeWhile parallel', async () => {
-    const result = await lazy()
+  test('reduce pull', async () => {
+    const instance = lazy()
+      .parallel()
+      .awaitResolved()
+      .filter(it => it%2===0)
+      .map(it => it*2)
+      .debounceTime(10)
+      .reduce()
+      .share();
+    const results = [];
+    let resolves = 0;
+    instance.pull({
+      onNext (val) {
+        results.push(val)
+      }, onResolve () {
+        resolves++;
+      },
+    });
+    await instance.propose(sleep(10, 2), sleep(30, 30), sleep(15, 20))
+    expect(results).toEqual([ [ 40, 60, ], ]);
+    expect(resolves).toBe(1);
+
+    await instance.propose(sleep(15, 1), sleep(30, 30), sleep(45, 6), sleep(0, 25))
+
+    expect(results).toEqual([ [ 40, 60, ], [ 60, 12, ], ]);
+    expect(resolves).toBe(2);
+  });
+
+  test('takeWhile synchronous re-used', async () => {
+    const instance= lazy()
+      .awaitResolved()
+      .takeWhile(({ age, }) => age < 50)
+      .reduce((acc, n) => [ ...acc, n, ], [])
+      .share();
+    const result = await instance.push(
+      sleep(30, { name: 'John', age: 25, }),
+      sleep(20, { name: 'John', age: 20, }), // 2
+      sleep(15, { name: 'Lisa', age: 30, }), // 1
+      sleep(30, { name: 'Kim', age: 40, }),
+      sleep(20, { name: 'Ted', age: 50, }), // 3
+    );
+    expect(result).toEqual([ { name: 'John', age: 25, }, { name: 'John', age: 20, }, { name: 'Lisa', age: 30, }, { name: 'Kim', age: 40, }, ]);
+
+    const result2 = await instance.push(
+      sleep(30, { name: 'John', age: 25, }),
+      sleep(20, { name: 'John', age: 20, }), // 2
+      sleep(15, { name: 'Lisa', age: 30, }), // 1
+      sleep(30, { name: 'Kim', age: 40, }),
+      sleep(20, { name: 'Ted', age: 50, }), // 3
+    );
+    expect(result2).toEqual([]);
+  });
+
+  test('takeWhile parallel re-used', async () => {
+    const instance = lazy()
       .parallel()
       .awaitResolved()
       .takeWhile(({ age, }) => age < 50)
-      .reduce()
-      .push(
-        sleep(30, { name: 'John', age: 25, }),
-        sleep(20, { name: 'John', age: 20, }), // 2
-        sleep(15, { name: 'Lisa', age: 30, }), // 1
-        sleep(30, { name: 'Kim', age: 40, }),
-        sleep(20, { name: 'Ted', age: 50, }), // 3
-      );
+      .reduce(undefined, [])
+      .share();
+
+    const result = await instance.push(
+      sleep(30, { name: 'John', age: 25, }),
+      sleep(20, { name: 'John', age: 20, }), // 2
+      sleep(15, { name: 'Lisa', age: 30, }), // 1
+      sleep(30, { name: 'Kim', age: 40, }),
+      sleep(20, { name: 'Ted', age: 50, }), // 3
+    );
+
     expect(result).toEqual([ { name: 'Lisa', age: 30, }, { name: 'John', age: 20, }, ]);
+
+    const result2= await instance.push(
+      sleep(30, { name: 'John', age: 25, }),
+      sleep(20, { name: 'John', age: 20, }), // 2
+      sleep(15, { name: 'Lisa', age: 30, }), // 1
+      sleep(30, { name: 'Kim', age: 40, }),
+      sleep(20, { name: 'Ted', age: 50, }), // 3
+    );
+    expect(result2).toEqual([]);
   });
 
   test('where synchronous', async () => {
@@ -386,7 +478,7 @@ describe('lazy', async () => {
   test('skipWhile takeUntil synchronous', async () => {
     const result = await lazy()
       .awaitResolved()
-      .takeUntil(it => it<5)
+      .takeUntil(it => it>=5)
       .skipWhile(it => it<2)
       .reduce()
       .push(
@@ -404,7 +496,7 @@ describe('lazy', async () => {
     const result = await lazy()
       .parallel()
       .awaitResolved()
-      .takeUntil(it => it<5)
+      .takeUntil(it => it>=5)
       .skipWhile(it => it<2)
       .reduce()
       .push(
@@ -593,7 +685,8 @@ describe('lazy', async () => {
       .parallel()
       .awaitResolved()
       .some(it => it<5)
-      .push(sleep(10, 6), sleep(15, 10), sleep(13, 4));
+      .push(sleep(10, 6), sleep(15, 10), sleep(13, 4), sleep(11, 3));
     expect(result2).toBe(true);
   });
+
 });

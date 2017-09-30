@@ -1,3 +1,4 @@
+
 class CompositeAnd {
 
   static id = 0;
@@ -15,12 +16,20 @@ class CompositeAnd {
   call () {
     return this.predicate() && (!this.previous || this.previous.call());
   }
+
+  retire () {
+    this.predicate = returnFalse;
+    delete this.previous;
+  }
 }
 
 export function returnTrue () {
   return true;
 }
 
+export function returnFalse () {
+  return false;
+}
 export default function And (predicate, previous) {
   return new CompositeAnd(predicate, previous);
 }
