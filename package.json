@@ -1,6 +1,6 @@
 {
   "name": "none-dux",
-  "description": "lazy list iteration",
+  "description": "lazy async handling",
   "main": "lib/index.js",
   "engines": {
     "node": ">=8"
@@ -16,7 +16,7 @@
   "scripts": {
     "lint-fix": "eslint --ext .jsx --ext .js . --fix",
     "prepublish": "npm run build",
-    "test": "jest",
+    "test": "jest -t operators",
     "test:watch": "npm run test -- --watch"
   },
   "dependencies": {},

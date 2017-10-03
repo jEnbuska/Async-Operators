@@ -3,10 +3,16 @@ class CompositeAnd {
 
   static id = 0;
 
-  constructor (predicate = returnTrue, previous) {
+  constructor (predicate = returnTrue, next) {
     this.id = CompositeAnd.id++;
     this.predicate = predicate;
-    this.previous = previous;
+    this.next = next;
+  }
+
+  push (predicate) {
+    const previous = this.predicate;
+    this.predicate = () => previous() && predicate();
+    return this;
   }
 
   concat (predicate) {
@@ -14,12 +20,13 @@ class CompositeAnd {
   }
 
   call () {
-    return this.predicate() && (!this.previous || this.previous.call());
+    return this.predicate() && (!this.next || this.next.call());
   }
 
   retire () {
+    console.log('retire')
     this.predicate = returnFalse;
-    delete this.previous;
+    delete this.next;
   }
 }
 

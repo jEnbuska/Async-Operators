@@ -1,14 +1,6 @@
-export const { values, entries, keys, assign, hasOwnProperty: has, } = Object;
+const { values, } = Object;
 
 export const NOT_SET = Symbol('NOT_SET');
-
-export function sleep (ms) {
-  return new Promise(function (resolve) {
-    setTimeout(function () {
-      resolve();
-    }, ms);
-  });
-}
 
 export function defaultFilter (val) {
   return !!val;
@@ -56,10 +48,6 @@ export function orderComparator (a, b) {
     }
   }
   return 0;
-}
-
-export function emptyFunction () {
-
 }
 
 export function defaultComparator (a, b) {

@@ -1,11 +1,6 @@
 /* eslint-disable semi */
-import lazy from '../src/Lazy';
-
-async function sleep (time, result) {
-  return new Promise(res => setTimeout(() => {
-    res(result);
-  }, time));
-}
+import lazy from '../src';
+import { sleep, } from './common'
 
 describe('lazy', async () => {
 
@@ -27,13 +22,13 @@ describe('lazy', async () => {
     expect(result0).toEqual([ 2, 10, 6, 10, 20, 60, ]);
   });
   test('share re-use', async() => {
-    const instance = lazy()
+    const subject = lazy()
       .parallel()
       .awaitResolved()
       .map(it =>  it*2)
       .takeUntil(it => it>=50)
       .share();
-    const result = await instance
+    const result = await subject
       .filter(it => it <15)
       .reduce()
       .push(
@@ -45,16 +40,10 @@ describe('lazy', async () => {
         sleep(25, 30)   // 6 -> 60 -> end
       );
     expect(result).toEqual([ 2, 10, 6, 10, ]);
-    const result2 = await instance
-      .reduce((acc, next) => [ ...acc, next, ], [])
-      .push(
-        sleep(10, 5),
-        sleep(15, 3),
-        sleep(25, 10),
-        sleep(20, 5),
-        sleep(5, 1),
-        sleep(25, 30)
-      );
+    const results2 = []
+    const observable = await subject.reduce((acc, next) => [ ...acc, next, ], []);
+    observable.pull({ onNext: val => results2.push(val), })
+
     expect(result2).toEqual([]);
   });
 
@@ -234,7 +223,7 @@ describe('lazy', async () => {
       .parallel()
       .awaitResolved()
       .takeWhile(({ age, }) => age < 50)
-      .reduce(undefined, [])
+      .reduce((acc, next) => ([ ...acc, next, ]), [])
       .share();
 
     const result = await instance.push(
@@ -334,6 +323,7 @@ describe('lazy', async () => {
       .parallel()
       .awaitResolved()
       .takeLast(2)
+      .reduce()
       .push(sleep(30, 30), sleep(20, 20), sleep(40, 40), sleep(35, 35));
     expect(result).toEqual([ 35, 40, ]);
   });
@@ -353,6 +343,7 @@ describe('lazy', async () => {
       .awaitResolved()
       .scan((acc = {}, next) => Object.assign(acc, { [next]: true, }))
       .takeLast()
+      .reduce()
       .push(sleep(30, 30), sleep(20, 20));
     expect(result).toEqual([ { 30: true, 20: true, }, ]);
     const result2 = await lazy()
@@ -673,6 +664,22 @@ describe('lazy', async () => {
       .push(sleep(10, 6), sleep(15, 10), sleep(13, 5));
     expect(result2).toBe(false);
   });
+
+  test('some', async () => {
+    const result = await lazy()
+      .parallel()
+      .awaitResolved()
+      .some(it => it<5)
+      .push(sleep(10, 6), sleep(15, 10));
+    expect(result).toBe(false);
+    const result2 = await lazy()
+      .parallel()
+      .awaitResolved()
+      .some(it => it<5)
+      .push(sleep(10, 6), sleep(15, 10), sleep(13, 4), sleep(11, 3));
+    expect(result2).toBe(true);
+  });
+
 
   test('some', async () => {
     const result = await lazy()
