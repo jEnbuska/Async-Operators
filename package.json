@@ -1,5 +1,5 @@
 {
-  "name": "none-dux",
+  "name": "async_operators",
   "description": "lazy async handling",
   "main": "lib/index.js",
   "engines": {
