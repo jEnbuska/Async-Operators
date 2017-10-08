@@ -2,19 +2,19 @@
 const { NOT_SET, createSet, orderComparator, entriesToObject, } = require('./utils');
 
 function first () {
-  return function createFirst ({ resolve, upStreamActive, nextMiddleware, }) {
+  return function createFirst ({ resolve, retired, next, }) {
     let value = NOT_SET;
-    upStreamActive = upStreamActive.concat(() => value === NOT_SET);
+    retired = retired.concat(() => value === NOT_SET);
     return {
-      upStreamActive,
+      retired,
       resolve: async function resolveFirst () {
         const output = value;
         value = NOT_SET;
-        await nextMiddleware(output, []);
+        await next(output, []);
         await resolve();
       },
-      nextMiddleware: function createFirst (val) {
-        if (upStreamActive.call()) {
+      next: function createFirst (val) {
+        if (retired.call()) {
           value = val;
         }
       },
@@ -23,21 +23,21 @@ function first () {
 }
 
 function default$ (defaultValue) {
-  return function createDefault ({ nextMiddleware, resolve, upStreamActive, }) {
+  return function createDefault ({ next, resolve, retired, }) {
     let isSet = false;
     return {
       resolve: async function resolveDefault () {
         if (!isSet) {
-          await nextMiddleware(defaultValue);
+          await next(defaultValue);
         } else {
           isSet = false;
         }
         await resolve();
       },
-      nextMiddleware: function invokeDefault (val) {
-        if (upStreamActive.call()) {
+      next: function invokeDefault (val) {
+        if (retired.call()) {
           isSet = true;
-          return nextMiddleware(val);
+          return next(val);
         }
       },
     };
@@ -45,7 +45,7 @@ function default$ (defaultValue) {
 }
 
 function reverse () {
-  return function createReverse ({ nextMiddleware, upStreamActive, resolve, }) {
+  return function createReverse ({ next, retired, resolve, }) {
     let futures = [];
     return {
       resolve: async function resolveReversed () {
@@ -55,9 +55,9 @@ function reverse () {
         for (let i = 0; i < runnables.length && await runnables[i](); i++) {}
         await resolve();
       },
-      nextMiddleware: function invokeReverse (val, order) {
-        if (upStreamActive.call()) {
-          futures.push(() => nextMiddleware(val, order));
+      next: function invokeReverse (val, order) {
+        if (retired.call()) {
+          futures.push(() => next(val, order));
           return true;
         }
       },
@@ -66,7 +66,7 @@ function reverse () {
 }
 
 function sort (comparator) {
-  return function createSort ({ nextMiddleware, upStreamActive, resolve, }) {
+  return function createSort ({ next, retired, resolve, }) {
     let futures = [];
     return {
       resolve: async function resolveSort () {
@@ -78,9 +78,9 @@ function sort (comparator) {
         for (let i = 0; i < runnables.length && await runnables[i].task(); i++) {}
         return resolve();
       },
-      nextMiddleware: function invokeReverse (val, order) {
-        if (upStreamActive.call()) {
-          futures.push({ val, task: () => nextMiddleware(val, order), });
+      next: function invokeReverse (val, order) {
+        if (retired.call()) {
+          futures.push({ val, task: () => next(val, order), });
           return true;
         }
       },
@@ -89,12 +89,12 @@ function sort (comparator) {
 }
 
 function peek (callback) {
-  return function createPeek ({ upStreamActive, nextMiddleware, }) {
+  return function createPeek ({ retired, next, }) {
     return {
-      nextMiddleware: function invokePeek (val, order) {
-        if (upStreamActive.call()) {
+      next: function invokePeek (val, order) {
+        if (retired.call()) {
           callback(val);
-          return nextMiddleware(val, order);
+          return next(val, order);
         }
       },
     };
@@ -102,17 +102,17 @@ function peek (callback) {
 }
 
 function toArray () {
-  return function createToArray ({ upStreamActive, nextMiddleware, resolve, }) {
+  return function createToArray ({ retired, next, resolve, }) {
     let acc = [];
     return {
       resolve: async function resolveToArray () {
         const result = acc;
         acc = [];
-        await nextMiddleware(result);
+        await next(result);
         await resolve();
       },
-      nextMiddleware: function invokeToArray (val) {
-        if (upStreamActive.call()) {
+      next: function invokeToArray (val) {
+        if (retired.call()) {
           acc.push(val);
           return true;
         }
@@ -122,17 +122,17 @@ function toArray () {
 }
 
 function toSet (picker) {
-  return function createToArray ({ upStreamActive, nextMiddleware, resolve, }) {
+  return function createToArray ({ retired, next, resolve, }) {
     let acc = new Set();
     return {
       resolve: async function resolveToSet () {
         let result = acc;
         acc = new Set();
-        await nextMiddleware(result);
+        await next(result);
         await resolve();
       },
-      nextMiddleware: function invokeToSet (val) {
-        if (upStreamActive.call()) {
+      next: function invokeToSet (val) {
+        if (retired.call()) {
           acc.add(picker(val));
           return true;
         }
@@ -142,17 +142,17 @@ function toSet (picker) {
 }
 
 function toObject (picker) {
-  return function createToObject ({ upStreamActive, nextMiddleware, resolve, }) {
+  return function createToObject ({ retired, next, resolve, }) {
     let acc = {};
     return {
       resolve: async function resolveToObject () {
         const result = acc;
         acc = {};
-        await nextMiddleware(result);
+        await next(result);
         await resolve();
       },
-      nextMiddleware: function invokeToObject (val) {
-        if (upStreamActive.call()) {
+      next: function invokeToObject (val) {
+        if (retired.call()) {
           acc[picker(val)] = val;
           return true;
         }
@@ -162,17 +162,17 @@ function toObject (picker) {
 }
 
 function toObjectSet (picker) {
-  return function createToArray ({ upStreamActive, nextMiddleware, resolve, }) {
+  return function createToArray ({ retired, next, resolve, }) {
     let acc = {};
     return {
       resolve: async function resolveToObjectSet () {
         let result = acc;
         acc = {};
-        await nextMiddleware(result);
+        await next(result);
         await resolve();
       },
-      nextMiddleware: function invokeToObjectSet (val) {
-        if (upStreamActive.call()) {
+      next: function invokeToObjectSet (val) {
+        if (retired.call()) {
           acc[picker(val)] = true;
           return true;
         }
@@ -181,17 +181,17 @@ function toObjectSet (picker) {
   };
 }
 function toMap (picker) {
-  return function createToMap ({ upStreamActive, nextMiddleware, resolve, }) {
+  return function createToMap ({ retired, next, resolve, }) {
     let acc = new Map();
     return {
       resolve: async function resolveToMap () {
         const result = acc;
         acc = new Map();
-        await nextMiddleware(result);
+        await next(result);
         await resolve();
       },
-      nextMiddleware: function invokeToObject (val) {
-        if (upStreamActive.call()) {
+      next: function invokeToObject (val) {
+        if (retired.call()) {
           acc.set(picker(val), val);
           return true;
         }
@@ -201,7 +201,7 @@ function toMap (picker) {
 }
 
 function ordered () {
-  return function createOrdered ({ nextMiddleware, upStreamActive, resolve, }) {
+  return function createOrdered ({ next, retired, resolve, }) {
     let futures = {};
     return {
       resolve: async function resolveOrdered () {
@@ -211,9 +211,9 @@ function ordered () {
         for (let i = 0; i < runnables.length && await runnables[i](); i++) {}
         await resolve();
       },
-      nextMiddleware: function invokeOrdered (val, order) {
-        if (upStreamActive.call()) {
-          futures[order] = () => nextMiddleware(val, order);
+      next: function invokeOrdered (val, order) {
+        if (retired.call()) {
+          futures[order] = () => next(val, order);
           return true;
         }
       },
@@ -222,13 +222,13 @@ function ordered () {
 }
 
 function flatten (iterator) {
-  return function createFlatten ({ nextMiddleware, upStreamActive, }) {
+  return function createFlatten ({ next, retired, }) {
     return {
-      nextMiddleware: async function invokeFlatten (val, order) {
-        if (upStreamActive.call()) {
+      next: async function invokeFlatten (val, order) {
+        if (retired.call()) {
           const iterable = iterator(val);
           for (let i = 0; i<iterable.length; i++) {
-            const flattenResult = await nextMiddleware(iterable[i], [ ...order, i, ]);
+            const flattenResult = await next(iterable[i], [ ...order, i, ]);
             if (!flattenResult) {
               return false;
             }
@@ -241,11 +241,11 @@ function flatten (iterator) {
 }
 
 function map (mapper) {
-  return function createMap ({ nextMiddleware, upStreamActive, }) {
+  return function createMap ({ next, retired, }) {
     return {
-      nextMiddleware: function invokeMap (val, order) {
-        if (upStreamActive.call()) {
-          return nextMiddleware(mapper(val), order);
+      next: function invokeMap (val, order) {
+        if (retired.call()) {
+          return next(mapper(val), order);
         }
       },
     };
@@ -253,7 +253,7 @@ function map (mapper) {
 }
 
 function parallel () {
-  return function createParallel ({ nextMiddleware, upStreamActive, resolve, }) {
+  return function createParallel ({ next, retired, resolve, }) {
     let futures = [];
     return {
       resolve: async function resolveParallel () {
@@ -262,9 +262,9 @@ function parallel () {
         await Promise.all(copy.map(task => task()));
         await resolve();
       },
-      nextMiddleware: function invokeParallel (val, order) {
-        if (upStreamActive.call()) {
-          futures.push(() => nextMiddleware(val, order));
+      next: function invokeParallel (val, order) {
+        if (retired.call()) {
+          futures.push(() => next(val, order));
           return true;
         }
       },
@@ -274,14 +274,14 @@ function parallel () {
 
 function pick (keys) {
   const keySet = createSet(keys);
-  return function createPick ({ nextMiddleware, upStreamActive, }) {
+  return function createPick ({ next, retired, }) {
     return {
-      nextMiddleware: function invokePick (val, order) {
-        if (upStreamActive.call()) {
+      next: function invokePick (val, order) {
+        if (retired.call()) {
           val = Object.entries(val)
             .filter(e => keySet[e[0]])
             .reduce(entriesToObject, {});
-          return nextMiddleware(val, order);
+          return next(val, order);
         }
       },
     };
@@ -289,19 +289,19 @@ function pick (keys) {
 }
 
 function distinctBy (picker) {
-  return function createDistinctBy ({ resolve, nextMiddleware, upStreamActive, }) {
+  return function createDistinctBy ({ resolve, next, retired, }) {
     let history = {};
     return {
       resolve: async function resolveDistinctBy () {
         history = {};
         await resolve();
       },
-      nextMiddleware: function invokeDistinctBy (val, order) {
-        if (upStreamActive.call()) {
+      next: function invokeDistinctBy (val, order) {
+        if (retired.call()) {
           const key = picker(val);
           if (!history[key]) {
             history[key] = true;
-            return nextMiddleware(val, order);
+            return next(val, order);
           }
           return true;
         }
@@ -310,18 +310,18 @@ function distinctBy (picker) {
   };
 }
 function distinct () {
-  return function createDistinct ({ resolve, nextMiddleware, upStreamActive, }) {
+  return function createDistinct ({ resolve, next, retired, }) {
     let history = {};
     return {
       resolve: async function resolveDistinct () {
         history = {};
         await resolve();
       },
-      nextMiddleware: function invokeDistinct (val, order) {
-        if (upStreamActive.call()) {
+      next: function invokeDistinct (val, order) {
+        if (retired.call()) {
           if (!history[val]) {
             history[val] = true;
-            return nextMiddleware(val, order);
+            return next(val, order);
           }
           return true;
         }
@@ -331,12 +331,12 @@ function distinct () {
 }
 
 function filter (predicate) {
-  return function createFilter ({ upStreamActive, nextMiddleware, }) {
+  return function createFilter ({ retired, next, }) {
     return {
-      nextMiddleware: function invokeFilter (val, order) {
-        if (upStreamActive.call()) {
+      next: function invokeFilter (val, order) {
+        if (retired.call()) {
           if (predicate(val)) {
-            return nextMiddleware(val, order);
+            return next(val, order);
           }
           return true;
         }
@@ -346,12 +346,12 @@ function filter (predicate) {
 }
 
 function reject (predicate) {
-  return function createReject ({ upStreamActive, nextMiddleware, }) {
+  return function createReject ({ retired, next, }) {
     return {
-      nextMiddleware: function invokeReject (val, order) {
-        if (upStreamActive.call()) {
+      next: function invokeReject (val, order) {
+        if (retired.call()) {
           if (!predicate(val)) {
-            return nextMiddleware(val, order);
+            return next(val, order);
           }
           return true;
         }
@@ -362,13 +362,13 @@ function reject (predicate) {
 
 function omit (keys) {
   const rejectables = new Set(keys);
-  return function createOmit ({ upStreamActive, nextMiddleware, }) {
+  return function createOmit ({ retired, next, }) {
     return {
-      nextMiddleware: function invokeOmit (val, order) {
-        if (upStreamActive.call()) {
+      next: function invokeOmit (val, order) {
+        if (retired.call()) {
           val = Object.entries(val).filter(e => !rejectables.has(e[0])).reduce(entriesToObject, {});
 
-          return nextMiddleware(val, order);
+          return next(val, order);
         }
       },
     };
@@ -377,16 +377,16 @@ function omit (keys) {
 
 function where (matcher) {
   const matchEntries = Object.entries(matcher);
-  return function createWhere ({ upStreamActive, nextMiddleware,  }) {
+  return function createWhere ({ retired, next,  }) {
     return {
-      nextMiddleware: function invokeWhere (val, order) {
-        if (upStreamActive.call()) {
+      next: function invokeWhere (val, order) {
+        if (retired.call()) {
           for (const e of matchEntries) {
             if (val[e[0]] !== e[1]) {
               return true;
             }
           }
-          return nextMiddleware(val, order);
+          return next(val, order);
         }
       },
     };
@@ -394,17 +394,17 @@ function where (matcher) {
 }
 
 function skipWhile (predicate) {
-  return function createSkipWhile ({ resolve, upStreamActive, nextMiddleware, }) {
+  return function createSkipWhile ({ resolve, retired, next, }) {
     let take = false;
     return {
       resolve: function resolveSkipWhile () {
         take = false;
         return resolve();
       },
-      nextMiddleware: function invokeSkipWhile (val, order) {
-        if (upStreamActive.call()) {
+      next: function invokeSkipWhile (val, order) {
+        if (retired.call()) {
           if (take || (take = !predicate(val))) {
-            return nextMiddleware(val, order);
+            return next(val, order);
           }
           return true;
         }
@@ -414,7 +414,7 @@ function skipWhile (predicate) {
 }
 
 function scan (scanner, acc) {
-  return function createScan ({ resolve, upStreamActive, nextMiddleware, }) {
+  return function createScan ({ resolve, retired, next, }) {
     let output = acc;
     let futures = [];
     return {
@@ -423,12 +423,12 @@ function scan (scanner, acc) {
         futures = [];
         return resolve();
       },
-      nextMiddleware: async function invokeScan (val, order) {
-        if (upStreamActive.call()) {
+      next: async function invokeScan (val, order) {
+        if (retired.call()) {
           futures.push(async (input) => {
             const result = scanner(input, val);
             output = result;
-            return nextMiddleware(result, order);
+            return next(result, order);
           });
           if (futures.length===1) {
             for (let i = 0; i<futures.length; i++) {
@@ -446,17 +446,17 @@ function scan (scanner, acc) {
 }
 
 function takeUntil (predicate) {
-  return function createTakeUntil ({ resolve, upStreamActive, nextMiddleware, }) {
+  return function createTakeUntil ({ resolve, retired, next, }) {
     let take = true;
     return {
       resolve: function resolveTakeUntil () {
         take=true;
         return resolve();
       },
-      upStreamActive: upStreamActive.concat(() => take),
-      nextMiddleware: function invokeTakeUntil (val, order) {
-        if (upStreamActive.call() && take && (take = !predicate(val))) {
-          return nextMiddleware(val, order);
+      retired: retired.concat(() => take),
+      next: function invokeTakeUntil (val, order) {
+        if (retired.call() && take && (take = !predicate(val))) {
+          return next(val, order);
         }
       },
     };
@@ -464,17 +464,17 @@ function takeUntil (predicate) {
 }
 
 function takeWhile (predicate) {
-  return function createTakeWhile ({ resolve, upStreamActive, nextMiddleware, }) {
+  return function createTakeWhile ({ resolve, retired, next, }) {
     let take = true;
     return {
       resolve: function resolveTakeWhile () {
         take = true;
         return resolve();
       },
-      upStreamActive: upStreamActive.concat(() => take),
-      nextMiddleware: function invokeTakeWhile (val, order) {
-        if (take && (take = predicate(val)) && upStreamActive.call()) {
-          return nextMiddleware(val, order);
+      retired: retired.concat(() => take),
+      next: function invokeTakeWhile (val, order) {
+        if (take && (take = predicate(val)) && retired.call()) {
+          return next(val, order);
         }
       },
     };
@@ -483,13 +483,13 @@ function takeWhile (predicate) {
 
 function skip (count) {
   count = Number(count) || 0;
-  return function createSkip ({ upStreamActive, nextMiddleware, }) {
+  return function createSkip ({ retired, next, }) {
     let total = 0;
     return {
-      nextMiddleware: function invokeSkip (val, order) {
-        if (upStreamActive.call()) {
+      next: function invokeSkip (val, order) {
+        if (retired.call()) {
           if (total>=count) {
-            return nextMiddleware(val, order);
+            return next(val, order);
           } else {
             total++;
             return true;
@@ -500,19 +500,19 @@ function skip (count) {
   };
 }
 function take (max) {
-  return function createTake ({ resolve, upStreamActive, nextMiddleware, }) {
+  return function createTake ({ resolve, retired, next, }) {
     max = Number(max) || 0;
     let taken = 0;
     return {
-      upStreamActive: upStreamActive.concat(() => taken < max),
+      retired: retired.concat(() => taken < max),
       resolve: function resolveTake () {
         taken = 0;
         return resolve();
       },
-      nextMiddleware: function invokeTake (val, order) {
-        if (taken < max && upStreamActive.call()) {
+      next: function invokeTake (val, order) {
+        if (taken < max && retired.call()) {
           taken++;
-          return nextMiddleware(val, order);
+          return next(val, order);
         }
       },
     };
@@ -520,17 +520,17 @@ function take (max) {
 }
 
 function sum () {
-  return function createSum ({ nextMiddleware, upStreamActive, resolve, }) {
+  return function createSum ({ next, retired, resolve, }) {
     let total = 0;
     return {
       resolve: async function resolveSum () {
         const result = total;
         total = 0;
-        await nextMiddleware(result, [ 0, ]);
+        await next(result, [ 0, ]);
         await resolve();
       },
-      nextMiddleware: function invokeSum (val) {
-        if (upStreamActive.call()) {
+      next: function invokeSum (val) {
+        if (retired.call()) {
           total +=val;
           return true;
         }
@@ -540,17 +540,17 @@ function sum () {
 }
 
 function reduce (reducer, acc) {
-  return function createReduce ({ nextMiddleware, upStreamActive, resolve, }) {
+  return function createReduce ({ next, retired, resolve, }) {
     let output = acc;
     return {
       resolve: async function resolveReduce () {
         const result = output;
         output = acc;
-        await nextMiddleware(result, [ 0, ]);
+        await next(result, [ 0, ]);
         await resolve();
       },
-      nextMiddleware: function invokeReduce (val) {
-        if (upStreamActive.call()) {
+      next: function invokeReduce (val) {
+        if (retired.call()) {
           output = reducer(output, val);
           return true;
         }
@@ -560,19 +560,19 @@ function reduce (reducer, acc) {
 }
 
 function some (predicate) {
-  return function createSome ({ nextMiddleware, upStreamActive, resolve, }) {
+  return function createSome ({ next, retired, resolve, }) {
     let output = false;
-    upStreamActive = upStreamActive.concat(() => !output);
+    retired = retired.concat(() => !output);
     return {
-      upStreamActive,
+      retired,
       resolve: async function resolveSome () {
         const result = output;
         output = false;
-        await nextMiddleware(result, [ 0, ]);
+        await next(result, [ 0, ]);
         await resolve();
       },
-      nextMiddleware: function invokeSome (val) {
-        if (upStreamActive.call()) {
+      next: function invokeSome (val) {
+        if (retired.call()) {
           return !!(output = predicate(val));
         }
       },
@@ -581,19 +581,19 @@ function some (predicate) {
 }
 
 function every (predicate) {
-  return function createEvery ({ nextMiddleware, upStreamActive, resolve,  }) {
+  return function createEvery ({ next, retired, resolve,  }) {
     let output = true;
-    upStreamActive = upStreamActive.concat(() => output);
+    retired = retired.concat(() => output);
     return {
-      upStreamActive,
+      retired,
       resolve: async function resolveEvery () {
         const result = output;
         output = true;
-        await nextMiddleware(result, [ 0, ]);
+        await next(result, [ 0, ]);
         return resolve();
       },
-      nextMiddleware: function invokeEvery (val) {
-        if (upStreamActive.call()) {
+      next: function invokeEvery (val) {
+        if (retired.call()) {
           return output = !!predicate(val);
         }
       },

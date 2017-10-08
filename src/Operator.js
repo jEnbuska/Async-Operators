@@ -9,22 +9,22 @@ class Operator {
     this.middlewares = middlewares;
   }
 
-  async invoke (...sources) {
+  async resolve (...sources) {
     const { middlewares, } = this;
     let output = undefined;
     let pushResolver  = {
-      upStreamActive: new And(),
+      retired: new And(),
       resolve: function resolveInvoke () {},
-      nextMiddleware: function invoke (val) {
+      next: function invoke (val) {
         output = val;
       },
     };
-    const { upStreamActive, nextMiddleware, resolve, } = middlewares
+    const { retired, next, resolve, } = middlewares
       .slice()
       .reverse()
       .reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), pushResolver);
-    for (let i = 0; i<sources.length && upStreamActive.call(); i++) {
-      await nextMiddleware(sources[i], [ i, ], new And());
+    for (let i = 0; i<sources.length && retired.call(); i++) {
+      await next(sources[i], [ i, ], new And());
     }
     await resolve();
     return output;
@@ -41,7 +41,7 @@ class Operator {
         sources.push(i);
       }
     }
-    return this.invoke(...sources);
+    return this.resolve(...sources);
   }
 
   _create (operation) {
@@ -204,7 +204,7 @@ class Operator {
     return this._create(middlewareCreators.scan(scanner, acc));
   }
 
-  reduce (reducer = reduceToArray, acc) {
+  reduce (reducer, acc) {
     return this._create(middlewareCreators.reduce(reducer, acc));
   }
 

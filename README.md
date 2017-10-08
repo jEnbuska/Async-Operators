@@ -15,16 +15,16 @@ parallel()...
 ordered()...
 ```
 ###### parallel(); is simply a shorthand for ordered().parallel();
-## resolves:
+## resolvers:
 ```
-.invoke(...listOfParams);
+.resolve(...listOfParams);
 .range(from, to); //exlusive
 ```
 * Note that invoking operator with single value does not necessarily need a reducing operator:
 ```
 const agedJohn = await ordered()
   .map(john => ({...john, age: john.age+1}))
-  .invoke({ name: 'John', age: 25 });
+  .resolve({ name: 'John', age: 25 });
 console.log(agedJohn); // { name: 'John', age: 26, }
 ```
 ## reducing operators:
@@ -42,7 +42,7 @@ console.log(agedJohn); // { name: 'John', age: 26, }
 ```
 #####Note that reducing operators can be continued:
 
-```await ordered().sum().map(sum => sum*2).invoke(1,2,3); // --> 12 ```
+```await ordered().sum().map(sum => sum*2).resolve(1,2,3); // --> 12 ```
 
 ## filtering operators:
 ```
@@ -106,10 +106,10 @@ default flattener for 'flatten' is Object.values
 .distinctBy(string | callback)
 ```
 ######Explanations
-State of these flow control middlewares have their internal state. This internal state is not shared between different invokes
+State of these flow control middlewares have their internal state. This internal state is not shared between different resolves
 ```
 const pipe = parallel().take(1);
-const [ a, b, ]= await Promise.all([ pipe.invoke(1), pipe.invoke(2), ]);
+const [ a, b, ]= await Promise.all([ pipe.resolve(1), pipe.resolve(2), ]);
 console.log({ a, b, }); // { a: 1, b: 2 }
 ```
 middlewares 'take(), takeWhile, takeUntil() & first()' 
@@ -132,7 +132,7 @@ parallel() // --> parallel
  .map(async (val) => {/*map something async*/})
  .parallel() // --> parallel
  .await()
- .invoke(/*some parallel tasks*/) 
+ .resolve(/*some parallel tasks*/) 
 ```
 ## other:
 ```
@@ -144,7 +144,7 @@ default(any)
 const result = await ordered()
   .filter(it => it!==1)
   .default('NOT_SET')
-  .invoke(1)
+  .resolve(1)
 console.log(result); // 'NOT_SET'
 
 .await(?mapper)
@@ -177,9 +177,9 @@ async function parallelMapDistinctFilter(){
     .filter(it => it !== 8)
     .toArray();
 
-  const result = await pipe.invoke(5, 4, 3, 2, 1, 2, 3, 4, 5);
+  const result = await pipe.resolve(5, 4, 3, 2, 1, 2, 3, 4, 5);
   expect(result).toEqual([ 2, 4, 6, 10, ]);
-  const result2 = await pipe.invoke(4, 3, 2, 1);
+  const result2 = await pipe.resolve(4, 3, 2, 1);
   expect(result2).toEqual([ 2, 4, 6, ]);
 }
 
@@ -188,11 +188,11 @@ async function flattenWithLimit(){
     .flatten() // optionally flattener can be passed as callback
     .take(2); // stops all downstreams operations when limit is hit
     .toArray()
-  const names = await pipe.invoke({ firstname: 'John', lastname: 'Doe', });
+  const names = await pipe.resolve({ firstname: 'John', lastname: 'Doe', });
 
   expect(names).toEqual([ 'John', 'Doe', ]);
 
-  const firstTwoNumbers = await pipe.invoke([ 1, ],  [ 2, 3, ], [ 4, 5, 6, ]);
+  const firstTwoNumbers = await pipe.resolve([ 1, ],  [ 2, 3, ], [ 4, 5, 6, ]);
   expect(firstTwoNumbers).toEqual([ 1, 2, ]);       
 }
 
@@ -205,7 +205,7 @@ async function parallelAwaitFlattenParallelAwaitFlatten(){
      .await() // [ 1, 2 ], [ 1, 2 ] [ 2, 4 ] [ 8, 16 ]
      .flatten()// 1, 2, 1, 2, 2, 4, 8, 16
      .toArray()
-     .invoke(sleep(100, [ 1, 2, ]), sleep(50, [ 8, 1, ]));
+     .resolve(sleep(100, [ 1, 2, ]), sleep(50, [ 8, 1, ]));
    expect(result).toEqual([ 1, 2, 1, 2, 2, 4, 8, 16, ]);
 }
 ```

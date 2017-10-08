@@ -6,8 +6,8 @@ function defaultFilter (val) {
   return !!val;
 }
 
-function reduceToArray (acc = [], nextMiddleware) {
-  return [ ...acc, nextMiddleware, ];
+function reduceToArray (acc = [], next) {
+  return [ ...acc, next, ];
 }
 
 function createPropertyFilter (prop) {
