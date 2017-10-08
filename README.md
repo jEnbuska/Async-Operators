@@ -1,9 +1,11 @@
-Enables chaining async operations
+Performs asynchronous operations using
+familiar functions like 'map', 'filter', 'reduce' etc..
 
-##Required Node 8 >=
+####Required Node 8 >=
 ```
 const { parallel, ordered } require('async_operators');
 
+//util function for examples
 function sleep(ms, result){
   return new Promise(resolve => 
     setTimeout(() => 
@@ -55,96 +57,151 @@ async function parallelAwaitFlattenParallelAwaitFlatten(){
 ```
 ###### more examples under tests/operators.test.js
 
-#### parallel tasks
+## Initializers:
+```
+parallel()
+ordered()
+```
+###### parallel(); is simply a shorthand for ordered().parallel();
+## users:
+```
+.invoke(...list)
+.range(from, to)//exlusive
+```
+* Note that invoking operator with single value does not necessarily need a reducing operator:
+```
+const agedJohn = await ordered()
+  .map(john => ({...john, age: john.age+1}))
+  .invoke({ name: 'John', age: 25 });
+console.log(agedJohn); // { name: 'John', age: 26, }
+```
+## reducing operators:
+```
+.toArray()
+.reduce(callback, acc)
+.toObject(string | callback)
+.toObjectSet(string | callback)
+.toSet(string | callback)
+.toMap(string | callback)
+.sum()
+.some(string | callback)
+.every(string | callback)
+.first()
+```
+#####Note that reducing function can be continued:
 
-Use 'parallel' between every await if tasks should be awaited simultaneously 
-```...
-     .parallel()
-     .await()
-     ...
-     .parallel()
-     ...
-     await()
+```await ordered().sum().map(sum => sum*2).invoke(1,2,3); // --> 12 ```
+
+## filtering operators:
+```
+filter(string | callback)
+reject(string | callback)
+where(object) 
+```
+######Explanations
+```
+.filter(/*without parameters*/)
+  same as --> filter(val => !!val)
+.filter('name')
+  same as --> filter(val => !!val.name)
+  
+.reject(...)// is opposite of filter
+
+.where({name: 'John', age: 25}) 
+  same as --> filter(({age, name}) => age===25 && name: 'John')
+```
+### mapping operators:
+```
+map(...strings | callback)
+scan(callback, seed)
+pick(...strings)
+omit(...strings)
+```
+######Explanations
+```
+.map(callback)
+ same as --> [...].map(callback)
+.map('name')
+  same as --> [...].map(it => it.name)
+
+.scan((acc, next) => ({...acc, [next.id]: next}),{/*seed*})
+  same as [...].reduce(..., {}), but it's publishes all intermediate values
+
+.pick('name','age')
+  same as --> .map(it => ({name: it.name, age: it.age}))
+
+.omit(...)
+  --> negate of pick
 ```
 
-Order of values is not ensured after await()
-
-Use sort(comparator) or ordered() after await / await + parallel , if the order of results is relevant
-
-#### initializers
-parallel()
-
-ordered()
-
-#### finalizers
-invoke(...list)
-
-range(from, to) //exclusive
-
-#### operators
-
-filter(string | callback)
-
-reject(string | callback)
-
-where(object)
-
-map(...strings | callback)
-
-scan(callback, seed)
-
-reduce(callback, seed)
-
-toArray()
-
-toObject(string | callback)
-
-toObjectSet(string | callback)
-
-toSet(string | callback)
-
-toMap(string | callback)
-
-sum()
-
-pick(...strings)
-
-omit(...strings)
-
-distinct()
-
-distinctBy(string | callback)
-
-some(string | callback)
-
-every(string | callback)
-
-flatten(undefined | callback)
-
+## flatMappers:
+```
 keys()  _same as  .flatten(Object.keys)_
-
 values() _same as .flatten(Object.values)_
-
 entries() _same as .flatten(Object.entries)_
-
-first()
-
+flatten(undefined | callback)
+```
+######Explanations
+default flattener for 'flatten' is Object.values
+## flow control filters:
+```
 take(number)
-
 takeWhile(string | callback)
-
 takeUntil(string | callback)
-
+skip(number)
 skipWhile(string | callback)
-
-await()
-
+distinct()
+distinctBy(string | callback)
+```
+######Explanations
+State of these flow control middlewares have their internal state
+This internal state is not shared between different invokes
+```
+const pipe = parallel().take(1);
+const [ a, b, ]= await Promise.all([ pipe.invoke(1), pipe.invoke(2), ]);
+console.log({ a, b, }); // { a: 1, b: 2 }
+```
+middlewares 'take(), takeWhile, takeUntil() & first()' 
+stops all other ongoing operations down stream when their goal is hit
+## Ordering
+```
 parallel()
-
 ordered()
-
 reverse()
-
 sort(undefined | callback)
+```
+######Explanations
+* middlewares 'ordered, reverse, and sort', are blocking the upstream execution until downstream operations are finished
 
-default(any) // default value
+* parallel execution stops being parallel on 'ordered,  reverse, sort' middlewares
+
+* parallel execution is not recursively parallel by default:
+```
+parallel() // --> parallel
+ .await()
+ .flatten()// --> not recursively parallel
+ .map(async (val) => {/*map something async*/})
+ .parallel() // --> 100 parallel
+ .await()
+ .invoke(/*some parallel tasks*/) 
+```
+## other:
+```
+await(callback)
+default(any)
+```
+######Explanations
+```
+const result = await ordered()
+  .filter(it => it!==1)
+  .default('NOT_SET')
+  .invoke(1)
+console.log(result); // 'NOT_SET'
+
+.await(?mapper)
+  // waits until promise is resolved
+```
+
+#### parallel tasks
+* Order of values is not ensured after await()
+* Use sort(comparator) or ordered() after await / await + parallel , if the order of results is relevant

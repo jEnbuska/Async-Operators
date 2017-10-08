@@ -46,5 +46,31 @@ describe('examples', async () => {
       .invoke(sleep(100, [ 1, 2, ]), sleep(50, [ 8, 1, ]));
     expect(result).toEqual([ 1, 2, 1, 2, 2, 4, 8, 16, ]);
   });
+
+  test('map sum', async () => {
+    const result = await ordered().sum().map(sum => sum*2).invoke(1, 2, 3);
+    expect(result).toBe(12);
+  });
+
+  test('map single value', async () => {
+    const agedJohn = await ordered()
+      .map(john => ({ ...john, age: john.age+1, }))
+      .invoke({ name: 'John', age: 25, });
+    expect(agedJohn).toEqual({ name: 'John', age: 26, });
+  });
+
+  test('flow control', async () => {
+    const pipe = parallel().take(1);
+    const [ a, b, ]= await Promise.all([ pipe.invoke(1), pipe.invoke(2), ]);
+    expect({ a, b, }).toEqual({ a: 1, b: 2, });
+  });
+
+  test('default example', async () => {
+    const result = await ordered()
+      .filter(it => it!==1)
+      .default('NOT_SET')
+      .invoke(1);
+    expect(result).toBe('NOT_SET');
+  });
 });
 

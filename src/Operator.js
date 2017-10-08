@@ -178,7 +178,7 @@ class Operator {
     return this._create(middlewareCreators.filter(predicate));
   }
 
-  reject (predicate = defaultFilter) {
+  reject (predicate) {
     if (typeof predicate === 'string') {
       predicate = createPropertyFilter(predicate);
     }
