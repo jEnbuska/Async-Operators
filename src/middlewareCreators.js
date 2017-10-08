@@ -87,6 +87,7 @@ function reverse () {
       resolve: async function resolveReversed () {
         const runnables = futures.reverse();
         futures = [];
+        // eslint-disable-next-line no-empty
         for (let i = 0; i < runnables.length && await runnables[i](); i++) {}
         await resolve();
       },
@@ -109,6 +110,7 @@ function sort (comparator) {
           return comparator(a.val, b.val);
         });
         futures = [];
+        // eslint-disable-next-line no-empty
         for (let i = 0; i < runnables.length && await runnables[i].task(); i++) {}
         return resolve();
       },
@@ -241,6 +243,7 @@ function ordered () {
       resolve: async function resolveOrdered () {
         const runnables = Object.entries(futures).sort((e1, e2) => orderComparator(e1[0], e2[0])).map((e) => e[1]);
         futures = {};
+        // eslint-disable-next-line no-empty
         for (let i = 0; i < runnables.length && await runnables[i](); i++) {}
         await resolve();
       },
