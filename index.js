@@ -1,4 +1,4 @@
-const Operator = require('./Operator');
+const Operator = require('./src/Operator');
 
 function ordered () {
   return new Operator();
@@ -9,4 +9,4 @@ function parallel () {
 module.exports = {
   ordered,
   parallel,
-}
+};

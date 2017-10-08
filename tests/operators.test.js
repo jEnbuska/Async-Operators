@@ -1,4 +1,4 @@
-const { ordered, parallel, } = require('../src');
+const { ordered, parallel, } = require('../');
 const { sleep, } = require('./common');
 
 describe('operators', async () => {
