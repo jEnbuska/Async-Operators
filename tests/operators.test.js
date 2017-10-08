@@ -106,6 +106,7 @@ describe('operators', async () => {
   test('keys', async() => {
     const result = await ordered()
       .keys()
+      .toArray()
       .invoke({ a: 1, b: 2, });
     expect(result).toEqual([ 'a', 'b', ]);
   });
@@ -113,6 +114,7 @@ describe('operators', async () => {
   test('values', async() => {
     const result = await ordered()
       .values()
+      .toArray()
       .invoke({ a: 1, b: 2, });
     expect(result).toEqual([ 1, 2, ]);
   });
@@ -120,6 +122,7 @@ describe('operators', async () => {
   test('entries', async() => {
     const result = await ordered()
       .entries()
+      .toArray()
       .invoke({ a: 1, b: 2, });
     expect(result).toEqual([ [ 'a', 1, ], [ 'b', 2, ], ]);
   });

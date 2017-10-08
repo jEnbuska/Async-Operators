@@ -22,42 +22,6 @@ function first () {
   };
 }
 
-function entries () {
-  return function createEntries ({ nextMiddleware, upStreamActive, }) {
-    return {
-      nextMiddleware: function invokeEntries (val, order) {
-        if (upStreamActive.call()) {
-          return nextMiddleware(Object.entries(val), order);
-        }
-      },
-    };
-  };
-}
-
-function keys () {
-  return function createKeys ({ nextMiddleware, upStreamActive, }) {
-    return {
-      nextMiddleware: function invokeKeys (val, order) {
-        if (upStreamActive.call()) {
-          return nextMiddleware(Object.keys(val), order);
-        }
-      },
-    };
-  };
-}
-
-function values () {
-  return function createValues ({ nextMiddleware, upStreamActive, }) {
-    return {
-      nextMiddleware: function invokeValues (val, order) {
-        if (upStreamActive.call()) {
-          return nextMiddleware(Object.values(val), order);
-        }
-      },
-    };
-  };
-}
-
 function default$ (defaultValue) {
   return function createDefault ({ nextMiddleware, resolve, upStreamActive, }) {
     let isSet = false;
@@ -651,9 +615,6 @@ function await$ (mapper) {
 }
 module.exports = {
   first,
-  entries,
-  values,
-  keys,
   reverse,
   sort,
   peek,

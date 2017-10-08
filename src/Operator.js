@@ -53,15 +53,15 @@ class Operator {
   }
 
   keys () {
-    return this._create(middlewareCreators.keys());
+    return this._create(middlewareCreators.flatten(Object.keys));
   }
 
   entries () {
-    return this._create(middlewareCreators.entries());
+    return this._create(middlewareCreators.flatten(Object.entries));
   }
 
   values () {
-    return this._create(middlewareCreators.values());
+    return this._create(middlewareCreators.flatten(Object.values));
   }
 
   toArray () {
