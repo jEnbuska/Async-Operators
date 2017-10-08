@@ -1,5 +1,5 @@
 
-export default class CompositeAnd {
+class CompositeAnd {
 
   constructor (predicate = returnTrue, next) {
     this.predicate = predicate;
@@ -14,7 +14,7 @@ export default class CompositeAnd {
     return this.predicate() && (!this.next || this.next.call());
   }
 }
-
-export function returnTrue () {
+module.exports = CompositeAnd;
+function returnTrue () {
   return true;
 }

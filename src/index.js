@@ -1,8 +1,12 @@
-import Operator from './Operator';
+const Operator = require('./Operator');
 
-export function ordered () {
+function ordered () {
   return new Operator();
 }
-export function parallel () {
+function parallel () {
   return new Operator().parallel();
+}
+module.exports = {
+  ordered,
+  parallel,
 }

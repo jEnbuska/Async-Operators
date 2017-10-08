@@ -1,9 +1,9 @@
-import * as middlewareCreators from './middlewareCreators';
-import And, { returnTrue, } from './CompositeAnd';
-import { createPropertyFilter, createPropertySelector, defaultFilter, identity, reduceToArray, defaultComparator, } from './utils';
+const middlewareCreators = require('./middlewareCreators');
+const And = require('./CompositeAnd');
+const { createPropertyFilter, createPropertySelector, defaultFilter, identity, reduceToArray, defaultComparator, } = require('./utils');
 /* eslint-disable consistent-return */
 
-export default class Operator {
+class Operator {
 
   constructor (middlewares = []) {
     this.middlewares = middlewares;
@@ -24,7 +24,7 @@ export default class Operator {
       .reverse()
       .reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), pushResolver);
     for (let i = 0; i<sources.length && upStreamActive.call(); i++) {
-      await nextMiddleware(sources[i], [ i, ], new And(returnTrue));
+      await nextMiddleware(sources[i], [ i, ], new And());
     }
     await resolve();
     return output;
@@ -105,7 +105,7 @@ export default class Operator {
   }
 
   await (mapper = identity) {
-    return this._create(middlewareCreators.await$(mapper));
+    return this._create(middlewareCreators.await(mapper));
   }
 
   take (max) {
@@ -121,7 +121,7 @@ export default class Operator {
   }
 
   default (defaultValue) {
-    return this._create(middlewareCreators.default$(defaultValue));
+    return this._create(middlewareCreators.default(defaultValue));
   }
 
   peek (callback = console.log) {
@@ -230,3 +230,4 @@ export default class Operator {
     return this._create(middlewareCreators.skipWhile(predicate));
   }
 }
+module.exports = Operator;

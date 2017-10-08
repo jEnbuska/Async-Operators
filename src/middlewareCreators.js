@@ -1,7 +1,7 @@
 /* eslint-disable consistent-return */
-import { NOT_SET, createSet, orderComparator, entriesToObject, } from './utils';
+const { NOT_SET, createSet, orderComparator, entriesToObject, } = require('./utils');
 
-export function first () {
+function first () {
   return function createFirst ({ resolve, upStreamActive, nextMiddleware, }) {
     let value = NOT_SET;
     upStreamActive = upStreamActive.concat(() => value === NOT_SET);
@@ -22,7 +22,7 @@ export function first () {
   };
 }
 
-export function entries () {
+function entries () {
   return function createEntries ({ nextMiddleware, upStreamActive, }) {
     return {
       nextMiddleware: function invokeEntries (val, order) {
@@ -34,7 +34,7 @@ export function entries () {
   };
 }
 
-export function keys () {
+function keys () {
   return function createKeys ({ nextMiddleware, upStreamActive, }) {
     return {
       nextMiddleware: function invokeKeys (val, order) {
@@ -46,7 +46,7 @@ export function keys () {
   };
 }
 
-export function values () {
+function values () {
   return function createValues ({ nextMiddleware, upStreamActive, }) {
     return {
       nextMiddleware: function invokeValues (val, order) {
@@ -58,7 +58,7 @@ export function values () {
   };
 }
 
-export function default$ (defaultValue) {
+function default$ (defaultValue) {
   return function createDefault ({ nextMiddleware, resolve, upStreamActive, }) {
     let isSet = false;
     return {
@@ -80,7 +80,7 @@ export function default$ (defaultValue) {
   };
 }
 
-export function reverse () {
+function reverse () {
   return function createReverse ({ nextMiddleware, upStreamActive, resolve, }) {
     let futures = [];
     return {
@@ -100,7 +100,7 @@ export function reverse () {
   };
 }
 
-export function sort (comparator) {
+function sort (comparator) {
   return function createSort ({ nextMiddleware, upStreamActive, resolve, }) {
     let futures = [];
     return {
@@ -122,7 +122,7 @@ export function sort (comparator) {
   };
 }
 
-export function peek (callback) {
+function peek (callback) {
   return function createPeek ({ upStreamActive, nextMiddleware, }) {
     return {
       nextMiddleware: function invokePeek (val, order) {
@@ -135,7 +135,7 @@ export function peek (callback) {
   };
 }
 
-export function toArray () {
+function toArray () {
   return function createToArray ({ upStreamActive, nextMiddleware, resolve, }) {
     let acc = [];
     return {
@@ -155,7 +155,7 @@ export function toArray () {
   };
 }
 
-export function toSet (picker) {
+function toSet (picker) {
   return function createToArray ({ upStreamActive, nextMiddleware, resolve, }) {
     let acc = new Set();
     return {
@@ -175,7 +175,7 @@ export function toSet (picker) {
   };
 }
 
-export function toObject (picker) {
+function toObject (picker) {
   return function createToObject ({ upStreamActive, nextMiddleware, resolve, }) {
     let acc = {};
     return {
@@ -195,7 +195,7 @@ export function toObject (picker) {
   };
 }
 
-export function toObjectSet (picker) {
+function toObjectSet (picker) {
   return function createToArray ({ upStreamActive, nextMiddleware, resolve, }) {
     let acc = {};
     return {
@@ -214,7 +214,7 @@ export function toObjectSet (picker) {
     };
   };
 }
-export function toMap (picker) {
+function toMap (picker) {
   return function createToMap ({ upStreamActive, nextMiddleware, resolve, }) {
     let acc = new Map();
     return {
@@ -234,7 +234,7 @@ export function toMap (picker) {
   };
 }
 
-export function ordered () {
+function ordered () {
   return function createOrdered ({ nextMiddleware, upStreamActive, resolve, }) {
     let futures = {};
     return {
@@ -254,7 +254,7 @@ export function ordered () {
   };
 }
 
-export function flatten (iterator) {
+function flatten (iterator) {
   return function createFlatten ({ nextMiddleware, upStreamActive, }) {
     return {
       nextMiddleware: async function invokeFlatten (val, order) {
@@ -273,7 +273,7 @@ export function flatten (iterator) {
   };
 }
 
-export function map (mapper) {
+function map (mapper) {
   return function createMap ({ nextMiddleware, upStreamActive, }) {
     return {
       nextMiddleware: function invokeMap (val, order) {
@@ -285,7 +285,7 @@ export function map (mapper) {
   };
 }
 
-export function parallel () {
+function parallel () {
   return function createParallel ({ nextMiddleware, upStreamActive, resolve, }) {
     let futures = [];
     return {
@@ -305,7 +305,7 @@ export function parallel () {
   };
 }
 
-export function pick (keys) {
+function pick (keys) {
   const keySet = createSet(keys);
   return function createPick ({ nextMiddleware, upStreamActive, }) {
     return {
@@ -321,7 +321,7 @@ export function pick (keys) {
   };
 }
 
-export function distinctBy (picker) {
+function distinctBy (picker) {
   return function createDistinctBy ({ resolve, nextMiddleware, upStreamActive, }) {
     let history = {};
     return {
@@ -342,7 +342,7 @@ export function distinctBy (picker) {
     };
   };
 }
-export function distinct () {
+function distinct () {
   return function createDistinct ({ resolve, nextMiddleware, upStreamActive, }) {
     let history = {};
     return {
@@ -363,7 +363,7 @@ export function distinct () {
   };
 }
 
-export function filter (predicate) {
+function filter (predicate) {
   return function createFilter ({ upStreamActive, nextMiddleware, }) {
     return {
       nextMiddleware: function invokeFilter (val, order) {
@@ -378,7 +378,7 @@ export function filter (predicate) {
   };
 }
 
-export function reject (predicate) {
+function reject (predicate) {
   return function createReject ({ upStreamActive, nextMiddleware, }) {
     return {
       nextMiddleware: function invokeReject (val, order) {
@@ -393,7 +393,7 @@ export function reject (predicate) {
   };
 }
 
-export function omit (keys) {
+function omit (keys) {
   const rejectables = new Set(keys);
   return function createOmit ({ upStreamActive, nextMiddleware, }) {
     return {
@@ -408,7 +408,7 @@ export function omit (keys) {
   };
 }
 
-export function where (matcher) {
+function where (matcher) {
   const matchEntries = Object.entries(matcher);
   return function createWhere ({ upStreamActive, nextMiddleware,  }) {
     return {
@@ -426,7 +426,7 @@ export function where (matcher) {
   };
 }
 
-export function skipWhile (predicate) {
+function skipWhile (predicate) {
   return function createSkipWhile ({ resolve, upStreamActive, nextMiddleware, }) {
     let take = false;
     return {
@@ -446,7 +446,7 @@ export function skipWhile (predicate) {
   };
 }
 
-export function scan (scanner, acc) {
+function scan (scanner, acc) {
   return function createScan ({ resolve, upStreamActive, nextMiddleware, }) {
     let output = acc;
     let futures = [];
@@ -478,7 +478,7 @@ export function scan (scanner, acc) {
   };
 }
 
-export function takeUntil (predicate) {
+function takeUntil (predicate) {
   return function createTakeUntil ({ resolve, upStreamActive, nextMiddleware, }) {
     let take = true;
     return {
@@ -496,7 +496,7 @@ export function takeUntil (predicate) {
   };
 }
 
-export function takeWhile (predicate) {
+function takeWhile (predicate) {
   return function createTakeWhile ({ resolve, upStreamActive, nextMiddleware, }) {
     let take = true;
     return {
@@ -514,7 +514,7 @@ export function takeWhile (predicate) {
   };
 }
 
-export function skip (count) {
+function skip (count) {
   count = Number(count) || 0;
   return function createSkip ({ upStreamActive, nextMiddleware, }) {
     let total = 0;
@@ -532,7 +532,7 @@ export function skip (count) {
     };
   };
 }
-export function take (max) {
+function take (max) {
   return function createTake ({ resolve, upStreamActive, nextMiddleware, }) {
     max = Number(max) || 0;
     let taken = 0;
@@ -552,7 +552,7 @@ export function take (max) {
   };
 }
 
-export function sum () {
+function sum () {
   return function createSum ({ nextMiddleware, upStreamActive, resolve, }) {
     let total = 0;
     return {
@@ -572,7 +572,7 @@ export function sum () {
   };
 }
 
-export function reduce (reducer, acc) {
+function reduce (reducer, acc) {
   return function createReduce ({ nextMiddleware, upStreamActive, resolve, }) {
     let output = acc;
     return {
@@ -592,7 +592,7 @@ export function reduce (reducer, acc) {
   };
 }
 
-export function some (predicate) {
+function some (predicate) {
   return function createSome ({ nextMiddleware, upStreamActive, resolve, }) {
     let output = false;
     upStreamActive = upStreamActive.concat(() => !output);
@@ -613,7 +613,7 @@ export function some (predicate) {
   };
 }
 
-export function every (predicate) {
+function every (predicate) {
   return function createEvery ({ nextMiddleware, upStreamActive, resolve,  }) {
     let output = true;
     upStreamActive = upStreamActive.concat(() => output);
@@ -634,7 +634,7 @@ export function every (predicate) {
   };
 }
 
-export function await$ (mapper) {
+function await$ (mapper) {
   return function createAwait$ ({ nextMiddleware, upStreamActive, }) {
     return {
       nextMiddleware: async function invokeAwait$ (val, order) {
@@ -646,3 +646,40 @@ export function await$ (mapper) {
     };
   };
 }
+module.exports = {
+  first,
+  entries,
+  values,
+  keys,
+  reverse,
+  sort,
+  peek,
+  toArray,
+  toObject,
+  toObjectSet,
+  parallel,
+  ordered,
+  some,
+  every,
+  toSet,
+  toMap,
+  flatten,
+  map,
+  pick,
+  distinct,
+  distinctBy,
+  filter,
+  reject,
+  omit,
+  where,
+  skipWhile,
+  scan,
+  takeWhile,
+  takeUntil,
+  skip,
+  take,
+  sum,
+  reduce,
+  default: default$,
+  await: await$,
+};

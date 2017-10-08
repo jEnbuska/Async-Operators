@@ -1,5 +1,5 @@
-import { ordered, parallel, } from '../src';
-import { sleep, } from './common';
+const { ordered, parallel, } = require('../src');
+const { sleep, } = require('./common');
 
 describe('examples', async () => {
   test('parallel map and filter', async () => {

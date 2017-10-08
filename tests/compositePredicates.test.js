@@ -1,4 +1,4 @@
-import And from '../src/CompositeAnd';
+const And = require('../src/CompositeAnd');
 
 describe('CompositeAnd', () => {
   test('single and', function () {

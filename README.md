@@ -2,7 +2,7 @@ Enables chaining async operations
 
 ##Required Node 8 >=
 ```
-import { parallel, ordered } from 'lazy';
+const { parallel, ordered } require('async_operators');
 
 function sleep(ms, result){
   return new Promise(resolve => 
