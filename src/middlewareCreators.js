@@ -602,12 +602,64 @@ function every (predicate) {
 }
 
 function await$ (mapper) {
-  return function createAwait$ ({ nextMiddleware, upStreamActive, }) {
+  return function createAwait$ ({ next, retired, }) {
     return {
-      nextMiddleware: async function invokeAwait$ (val, order) {
-        if (upStreamActive.call()) {
-          await nextMiddleware(await mapper(val), order);
-          return upStreamActive.call();
+      next: async function invokeAwait$ (val, order) {
+        if (retired.call()) {
+          await next(await mapper(val), order);
+          return retired.call();
+        }
+      },
+    };
+  };
+}
+
+function min (comparator) {
+  return function createMin ({ next, retired, resolve, }) {
+    let min = NOT_SET;
+    return {
+      resolve: async function resolveMin () {
+        if (min!==NOT_SET) {
+          await next(min, [ 0, ]);
+        }
+        await resolve();
+      },
+      next: function invokeMin (val) {
+        if (retired.call()) {
+          if (min!==NOT_SET) {
+            if (comparator(min, val) > 0) {
+              min = val;
+            }
+          } else {
+            min = val;
+          }
+          return true;
+        }
+      },
+    };
+  };
+}
+
+function max (comparator) {
+  return function createMin ({ next, retired, resolve, }) {
+    let max = NOT_SET;
+    return {
+      resolve: async function resolveMax () {
+        if (min!==NOT_SET) {
+          await next(max, [ 0, ]);
+        }
+        await resolve();
+      },
+      next: function invokeMax (val) {
+        if (retired.call()) {
+          if (max!==NOT_SET) {
+            if (comparator(max, val) < 0) {
+              max = val;
+            }
+          } else {
+            max= val;
+          }
+          return true;
         }
       },
     };
@@ -644,6 +696,8 @@ module.exports = {
   take,
   sum,
   reduce,
+  min,
+  max,
   default: default$,
   await: await$,
 };

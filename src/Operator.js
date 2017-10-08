@@ -30,6 +30,14 @@ class Operator {
     return output;
   }
 
+  min (comparator = defaultComparator) {
+    return this._create(middlewareCreators.min(comparator));
+  }
+
+  max (comparator = defaultComparator) {
+    return this._create(middlewareCreators.max(comparator));
+  }
+
   range (from, to) {
     const sources = [];
     if (from<to) {

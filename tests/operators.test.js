@@ -437,5 +437,19 @@ describe('operators', async () => {
       .range(1, 1);
     expect(result).toEqual([]);
   });
+
+  test('min', async () => {
+    const result = await ordered()
+      .min()
+      .resolve(1, 2, -1, 3);
+    expect(result).toBe(-1);
+  });
+
+  test('min', async () => {
+    const result = await ordered()
+      .max()
+      .resolve(1, 2, 3, -1, );
+    expect(result).toBe(3);
+  });
 });
 

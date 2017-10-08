@@ -39,6 +39,8 @@ console.log(agedJohn); // { name: 'John', age: 26, }
 .some(string | callback)
 .every(string | callback)
 .first()
+.min(comparator)
+.max(comparator)
 ```
 #####Note that reducing operators can be continued:
 
