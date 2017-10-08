@@ -88,7 +88,7 @@ console.log(agedJohn); // { name: 'John', age: 26, }
 .every(string | callback)
 .first()
 ```
-#####Note that reducing function can be continued:
+#####Note that reducing operators can be continued:
 
 ```await ordered().sum().map(sum => sum*2).invoke(1,2,3); // --> 12 ```
 
@@ -125,7 +125,7 @@ omit(...strings)
   same as --> [...].map(it => it.name)
 
 .scan((acc, next) => ({...acc, [next.id]: next}),{/*seed*})
-  same as [...].reduce(..., {}), but it's publishes all intermediate values
+  same as [...].reduce(..., {}), but it publishes all intermediate values
 
 .pick('name','age')
   same as --> .map(it => ({name: it.name, age: it.age}))
@@ -136,9 +136,9 @@ omit(...strings)
 
 ## flatMappers:
 ```
-keys()  _same as  .flatten(Object.keys)_
-values() _same as .flatten(Object.values)_
-entries() _same as .flatten(Object.entries)_
+keys()  //same as  .flatten(Object.keys)
+values() //same as .flatten(Object.values)
+entries() //same as .flatten(Object.entries)
 flatten(undefined | callback)
 ```
 ######Explanations
@@ -154,15 +154,14 @@ distinct()
 distinctBy(string | callback)
 ```
 ######Explanations
-State of these flow control middlewares have their internal state
-This internal state is not shared between different invokes
+State of these flow control middlewares have their internal state. This internal state is not shared between different invokes
 ```
 const pipe = parallel().take(1);
 const [ a, b, ]= await Promise.all([ pipe.invoke(1), pipe.invoke(2), ]);
 console.log({ a, b, }); // { a: 1, b: 2 }
 ```
 middlewares 'take(), takeWhile, takeUntil() & first()' 
-stops all other ongoing operations down stream when their goal is hit
+stops all other ongoing operations downstream when their goal is hit
 ## Ordering
 ```
 parallel()
@@ -171,17 +170,15 @@ reverse()
 sort(undefined | callback)
 ```
 ######Explanations
-* middlewares 'ordered, reverse, and sort', are blocking the upstream execution until downstream operations are finished
-
-* parallel execution stops being parallel on 'ordered,  reverse, sort' middlewares
-
+* middlewares 'ordered, reverse, and sort', are blocking the upstream execution until all downstream operations are finished
+* parallel execution stops being parallel on 'ordered,  reverse, sort' middlewares.
 * parallel execution is not recursively parallel by default:
 ```
 parallel() // --> parallel
  .await()
  .flatten()// --> not recursively parallel
  .map(async (val) => {/*map something async*/})
- .parallel() // --> 100 parallel
+ .parallel() // --> parallel
  .await()
  .invoke(/*some parallel tasks*/) 
 ```
