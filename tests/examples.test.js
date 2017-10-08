@@ -32,7 +32,7 @@ describe('examples', async () => {
     expect(firstTwoNumbers).toEqual([ 1, 2, ]);
   });
 
-  test('await flatten await flatten', async () => {
+  test('parallel await flatten parallel await flatten', async () => {
     const result = await parallel()
       .await() // [ 7 ,1 ], [ 1, 2 ]
       .flatten() // 7, 1, 1, 2

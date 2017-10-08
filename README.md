@@ -42,7 +42,7 @@ function flattenWithLimit(){
   expect(firstTwoNumbers).toEqual([ 1, 2, ]);       
 }
 
-function flattenAwaitFlattenAwait(){
+function parallelAwaitFlattenParallelAwaitFlatten(){
    const result = await parallel()
      .await() // [ 8 ,1 ], [ 1, 2 ]
      .flatten() // 8, 1, 1, 2
