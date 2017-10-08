@@ -5,7 +5,7 @@
   "engines": {
     "node": ">=8"
   },
-  "version": "0.0.3",
+  "version": "0.0.4",
   "author": "jEnbuska <joonaenb@gmail.com>",
   "license": "MIT",
   "repository": {
