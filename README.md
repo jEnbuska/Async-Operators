@@ -30,7 +30,7 @@ function flattenWithLimit(){
     .flatten() // optionally flattener can be passed as callback
     .take(2); // stops all downstreams operations when limit is hit
 
-  const names = await  pipe
+  const names = await pipe
     .toArray()
     .invoke({ firstname: 'John', lastname: 'Doe', });
 
@@ -55,10 +55,23 @@ function flattenAwaitFlattenAwait(){
    expect(result).toEqual([ 1, 2, 1, 2, 2, 4, 8, 16, ]);
 }
 ```
+###### more examples under tests/operators.test.js
 
-#### ordering
-order of values is not ensured after await(). 
-Use sort(comparator) or ordered() as final statement, if the order of results is relevant 
+#### parallel tasks
+
+Use 'parallel' between every await if tasks should be awaited simultaneously 
+```...
+     .parallel()
+     .await()
+     ...
+     .parallel()
+     ...
+     await()
+```
+
+Order of values is not ensured after await()
+
+Use sort(comparator) or ordered() after await / await + parallel , if the order of results is relevant
 
 #### initializers
 parallel()
