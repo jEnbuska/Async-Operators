@@ -3,11 +3,7 @@ import And, { returnTrue, } from './CompositeAnd';
 import { createPropertyFilter, createPropertySelector, defaultFilter, identity, reduceToArray, defaultComparator, } from './utils';
 /* eslint-disable consistent-return */
 
-export default function create () {
-  return new Operator();
-}
-
-class Operator {
+export default class Operator {
 
   constructor (middlewares = []) {
     this.middlewares = middlewares;
@@ -17,7 +13,7 @@ class Operator {
     const { middlewares, } = this;
     let output = undefined;
     let pushResolver  = {
-      upStreamActive: And(),
+      upStreamActive: new And(),
       resolve: function resolveInvoke () {},
       nextMiddleware: function invoke (val) {
         output = val;
@@ -28,10 +24,24 @@ class Operator {
       .reverse()
       .reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), pushResolver);
     for (let i = 0; i<sources.length && upStreamActive.call(); i++) {
-      await nextMiddleware(sources[i], [ i, ], And(returnTrue));
+      await nextMiddleware(sources[i], [ i, ], new And(returnTrue));
     }
     await resolve();
     return output;
+  }
+
+  range (from, to) {
+    const sources = [];
+    if (from<to) {
+      for (let i = from; i<to; i++) {
+        sources.push(i);
+      }
+    } else {
+      for (let i = from; i>to; i--) {
+        sources.push(i);
+      }
+    }
+    return this.invoke(...sources);
   }
 
   _create (operation) {
@@ -110,6 +120,10 @@ class Operator {
     return this._create(middlewareCreators.where(matcher));
   }
 
+  default (defaultValue) {
+    return this._create(middlewareCreators.default$(defaultValue));
+  }
+
   peek (callback = console.log) {
     if (typeof callback === 'string') {
       const prefix = callback;
@@ -132,6 +146,10 @@ class Operator {
 
   pick (...keys) {
     return this._create(middlewareCreators.pick(keys));
+  }
+
+  omit (...keys) {
+    return this._create(middlewareCreators.omit(keys));
   }
 
   distinct () {
@@ -158,6 +176,13 @@ class Operator {
       predicate = createPropertyFilter(predicate);
     }
     return this._create(middlewareCreators.filter(predicate));
+  }
+
+  reject (predicate = defaultFilter) {
+    if (typeof predicate === 'string') {
+      predicate = createPropertyFilter(predicate);
+    }
+    return this._create(middlewareCreators.reject(predicate));
   }
 
   every (predicate = defaultFilter) {

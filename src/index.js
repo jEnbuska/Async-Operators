@@ -1,5 +1,8 @@
 import Operator from './Operator';
 
-export default function CreateLazy () {
+export function ordered () {
   return new Operator();
+}
+export function parallel () {
+  return new Operator().parallel();
 }

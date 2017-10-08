@@ -13,7 +13,7 @@ export function first () {
         await nextMiddleware(output, []);
         await resolve();
       },
-      nextMiddleware: async function createFirst (val) {
+      nextMiddleware: function createFirst (val) {
         if (upStreamActive.call()) {
           value = val;
         }
@@ -58,19 +58,41 @@ export function values () {
   };
 }
 
+export function default$ (defaultValue) {
+  return function createDefault ({ nextMiddleware, resolve, upStreamActive, }) {
+    let isSet = false;
+    return {
+      resolve: async function resolveDefault () {
+        if (!isSet) {
+          await nextMiddleware(defaultValue);
+        } else {
+          isSet = false;
+        }
+        await resolve();
+      },
+      nextMiddleware: function invokeDefault (val) {
+        if (upStreamActive.call()) {
+          isSet = true;
+          return nextMiddleware(val);
+        }
+      },
+    };
+  };
+}
+
 export function reverse () {
   return function createReverse ({ nextMiddleware, upStreamActive, resolve, }) {
-    let tasks = [];
+    let futures = [];
     return {
       resolve: async function resolveReversed () {
-        const runnables = tasks.reverse();
-        tasks = [];
+        const runnables = futures.reverse();
+        futures = [];
         for (let i = 0; i < runnables.length && await runnables[i](); i++) {}
         await resolve();
       },
       nextMiddleware: function invokeReverse (val, order) {
         if (upStreamActive.call()) {
-          tasks.push(() => nextMiddleware(val, order));
+          futures.push(() => nextMiddleware(val, order));
           return true;
         }
       },
@@ -80,19 +102,19 @@ export function reverse () {
 
 export function sort (comparator) {
   return function createSort ({ nextMiddleware, upStreamActive, resolve, }) {
-    let tasks = [];
+    let futures = [];
     return {
       resolve: async function resolveSort () {
-        const runnables = tasks.sort(function (a, b) {
+        const runnables = futures.sort(function (a, b) {
           return comparator(a.val, b.val);
         });
-        tasks = [];
+        futures = [];
         for (let i = 0; i < runnables.length && await runnables[i].task(); i++) {}
         return resolve();
       },
       nextMiddleware: function invokeReverse (val, order) {
         if (upStreamActive.call()) {
-          tasks.push({ val, task: () => nextMiddleware(val, order), });
+          futures.push({ val, task: () => nextMiddleware(val, order), });
           return true;
         }
       },
@@ -214,17 +236,17 @@ export function toMap (picker) {
 
 export function ordered () {
   return function createOrdered ({ nextMiddleware, upStreamActive, resolve, }) {
-    let tasks = {};
+    let futures = {};
     return {
       resolve: async function resolveOrdered () {
-        const runnables = Object.entries(tasks).sort((e1, e2) => orderComparator(e1[0], e2[0])).map((e) => e[1]);
-        tasks = {};
+        const runnables = Object.entries(futures).sort((e1, e2) => orderComparator(e1[0], e2[0])).map((e) => e[1]);
+        futures = {};
         for (let i = 0; i < runnables.length && await runnables[i](); i++) {}
         await resolve();
       },
       nextMiddleware: function invokeOrdered (val, order) {
         if (upStreamActive.call()) {
-          tasks[order] = () => nextMiddleware(val, order);
+          futures[order] = () => nextMiddleware(val, order);
           return true;
         }
       },
@@ -238,9 +260,9 @@ export function flatten (iterator) {
       nextMiddleware: async function invokeFlatten (val, order) {
         if (upStreamActive.call()) {
           const iterable = iterator(val);
-          let i = 0;
-          for (const v of iterable) {
-            if (!await nextMiddleware(v, [ ...order, i++, ])) {
+          for (let i = 0; i<iterable.length; i++) {
+            const flattenResult = await nextMiddleware(iterable[i], [ ...order, i, ]);
+            if (!flattenResult) {
               return false;
             }
           }
@@ -265,17 +287,17 @@ export function map (mapper) {
 
 export function parallel () {
   return function createParallel ({ nextMiddleware, upStreamActive, resolve, }) {
-    let tasks = [];
+    let futures = [];
     return {
       resolve: async function resolveParallel () {
-        const copy = tasks.slice();
-        tasks = [];
+        const copy = futures.slice();
+        futures = [];
         await Promise.all(copy.map(task => task()));
         await resolve();
       },
       nextMiddleware: function invokeParallel (val, order) {
         if (upStreamActive.call()) {
-          tasks.push(() => nextMiddleware(val, order));
+          futures.push(() => nextMiddleware(val, order));
           return true;
         }
       },
@@ -350,6 +372,36 @@ export function filter (predicate) {
             return nextMiddleware(val, order);
           }
           return true;
+        }
+      },
+    };
+  };
+}
+
+export function reject (predicate) {
+  return function createReject ({ upStreamActive, nextMiddleware, }) {
+    return {
+      nextMiddleware: function invokeReject (val, order) {
+        if (upStreamActive.call()) {
+          if (!predicate(val)) {
+            return nextMiddleware(val, order);
+          }
+          return true;
+        }
+      },
+    };
+  };
+}
+
+export function omit (keys) {
+  const rejectables = new Set(keys);
+  return function createOmit ({ upStreamActive, nextMiddleware, }) {
+    return {
+      nextMiddleware: function invokeOmit (val, order) {
+        if (upStreamActive.call()) {
+          val = Object.entries(val).filter(e => !rejectables.has(e[0])).reduce(entriesToObject, {});
+
+          return nextMiddleware(val, order);
         }
       },
     };
@@ -510,7 +562,7 @@ export function sum () {
         await nextMiddleware(result, [ 0, ]);
         await resolve();
       },
-      nextMiddleware: async function invokeSum (val) {
+      nextMiddleware: function invokeSum (val) {
         if (upStreamActive.call()) {
           total +=val;
           return true;
@@ -530,7 +582,7 @@ export function reduce (reducer, acc) {
         await nextMiddleware(result, [ 0, ]);
         await resolve();
       },
-      nextMiddleware: async function invokeReduce (val) {
+      nextMiddleware: function invokeReduce (val) {
         if (upStreamActive.call()) {
           output = reducer(output, val);
           return true;
@@ -552,7 +604,7 @@ export function some (predicate) {
         await nextMiddleware(result, [ 0, ]);
         await resolve();
       },
-      nextMiddleware: async function invokeSome (val) {
+      nextMiddleware: function invokeSome (val) {
         if (upStreamActive.call()) {
           return !!(output = predicate(val));
         }
@@ -573,7 +625,7 @@ export function every (predicate) {
         await nextMiddleware(result, [ 0, ]);
         return resolve();
       },
-      nextMiddleware: async function invokeEvery (val) {
+      nextMiddleware: function invokeEvery (val) {
         if (upStreamActive.call()) {
           return output = !!predicate(val);
         }
@@ -588,6 +640,7 @@ export function await$ (mapper) {
       nextMiddleware: async function invokeAwait$ (val, order) {
         if (upStreamActive.call()) {
           await nextMiddleware(await mapper(val), order);
+          return upStreamActive.call();
         }
       },
     };

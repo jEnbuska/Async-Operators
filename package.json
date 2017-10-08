@@ -10,13 +10,13 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jEnbuska/lazyLists"
+    "url": "https://github.com/jEnbuska/Async-Operators"
   },
   "keywords": [],
   "scripts": {
     "lint-fix": "eslint --ext .jsx --ext .js . --fix",
     "prepublish": "npm run build",
-    "test": "jest -t operators",
+    "test": "jest",
     "test:watch": "npm run test -- --watch"
   },
   "dependencies": {},
