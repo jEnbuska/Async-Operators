@@ -27,24 +27,20 @@ async function parallelMapDistinctFilter(){
   expect(result2).toEqual([ 2, 4, 6, ]);
 }
 
-function flattenWithLimit(){
+async function flattenWithLimit(){
   const pipe = ordered()
     .flatten() // optionally flattener can be passed as callback
     .take(2); // stops all downstreams operations when limit is hit
-
-  const names = await pipe
     .toArray()
-    .invoke({ firstname: 'John', lastname: 'Doe', });
+  const names = await pipe.invoke({ firstname: 'John', lastname: 'Doe', });
 
   expect(names).toEqual([ 'John', 'Doe', ]);
 
-  const firstTwoNumbers = await pipe
-    .toArray()    
-    .invoke([ 1, ],  [ 2, 3, ], [ 4, 5, 6, ]);
+  const firstTwoNumbers = await pipe.invoke([ 1, ],  [ 2, 3, ], [ 4, 5, 6, ]);
   expect(firstTwoNumbers).toEqual([ 1, 2, ]);       
 }
 
-function parallelAwaitFlattenParallelAwaitFlatten(){
+async function parallelAwaitFlattenParallelAwaitFlatten(){
    const result = await parallel()
      .await() // [ 8 ,1 ], [ 1, 2 ]
      .flatten() // 8, 1, 1, 2
