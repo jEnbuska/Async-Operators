@@ -1,4 +1,5 @@
 Enables chaining async operations
+
 Required Node 8 >=
 ```
 import { parallel, ordered } from 'lazy';
