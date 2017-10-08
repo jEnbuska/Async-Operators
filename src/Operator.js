@@ -1,6 +1,6 @@
 const middlewareCreators = require('./middlewareCreators');
 const And = require('./CompositeAnd');
-const { createPropertyFilter, createPropertySelector, defaultFilter, identity, reduceToArray, defaultComparator, } = require('./utils');
+const { createPropertyFilter, createPropertySelector, defaultFilter, identity, defaultComparator, } = require('./utils');
 /* eslint-disable consistent-return */
 
 class Operator {
