@@ -3,21 +3,22 @@ familiar functions like 'map', 'filter', 'reduce' etc..
 
 ####Required Node 8 >=
 <b>examples at the bottom of the page</b>
-
+###### more examples under tests/operators.test.js
 ```npm install --save async_operators```
 
-###### more examples under tests/operators.test.js
+
 
 ## Initializers:
 ```
-parallel()
-ordered()
+const { parallel, ordered } = require('lazy_operators');
+parallel()...
+ordered()...
 ```
 ###### parallel(); is simply a shorthand for ordered().parallel();
-## users:
+## resolves:
 ```
-.invoke(...list)
-.range(from, to)//exlusive
+.invoke(...listOfParams);
+.range(from, to); //exlusive
 ```
 * Note that invoking operator with single value does not necessarily need a reducing operator:
 ```
