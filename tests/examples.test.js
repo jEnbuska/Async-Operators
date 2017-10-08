@@ -2,16 +2,18 @@ const { ordered, parallel, } = require('../');
 const { sleep, } = require('./common');
 
 describe('examples', async () => {
-  test('parallel map and filter', async () => {
+  test('parallel map, distinct and filter', async () => {
     const pipe = parallel()
+      .map(val => sleep(val, val))
       .await()
+      .distinct()
       .map(it => it*2)
-      .filter(it => it !== 20)
+      .filter(it => it !== 8)
       .toArray();
 
-    const result = await pipe.invoke(sleep(10, 10), sleep(5, 5), sleep(15, 15));
-    expect(result).toEqual([ 10, 30, ]);
-    const result2 = await pipe.invoke(sleep(3, 3), sleep(2, 2), sleep(1, 1));
+    const result = await pipe.invoke(5, 4, 3, 2, 1, 2, 3, 4, 5);
+    expect(result).toEqual([ 2, 4, 6, 10, ]);
+    const result2 = await pipe.invoke(4, 3, 2, 1);
     expect(result2).toEqual([ 2, 4, 6, ]);
   });
 
