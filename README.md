@@ -66,26 +66,23 @@ console.log(agedJohn); // { name: 'John', age: 26, }
 ```
 ### mapping operators:
 ```
-.map(...strings | callback)
+.map(string | callback)
 .scan(callback, seed)
 .pick(...strings)
 .omit(...strings)
 ```
 ######Explanations
 ```
-.map(callback)
- same as --> [...].map(callback)
-.map('name')
-  same as --> [...].map(it => it.name)
+.map(callback); //same as [...].map(callback)
+.map('name');// same as [...].map(it => it.name)
 
 .scan((acc, next) => ({...acc, [next.id]: next}),{/*seed*})
-  same as [...].reduce(..., {}), but it publishes all intermediate values
+  //same as [...].reduce(..., {}), but it publishes all intermediate values
 
 .pick('name','age')
-  same as --> .map(it => ({name: it.name, age: it.age}))
+  //same as --> .map(it => ({name: it.name, age: it.age}))
 
-.omit(...)
-  --> negate of pick
+.omit(...) // negate of pick
 ```
 
 ## flatMappers:
