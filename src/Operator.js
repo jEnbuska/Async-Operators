@@ -175,8 +175,11 @@ class Operator {
     return this._create(middlewareCreators.flatten(iterator));
   }
 
-  map (callback) {
-    return this._create(middlewareCreators.map(callback));
+  map (picker) {
+    if (typeof picker === 'string') {
+      picker = createPropertySelector(picker);
+    }
+    return this._create(middlewareCreators.map(picker));
   }
 
   filter (predicate = defaultFilter) {

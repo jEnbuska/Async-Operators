@@ -2,11 +2,20 @@ const { ordered, parallel, } = require('../');
 const { sleep, } = require('./common');
 
 describe('operators', async () => {
-  test('map', async () => {
+  test('map with callback', async () => {
     const result = await ordered()
       .map(it => it*2)
       .resolve(1);
     expect(result).toBe(2);
+  });
+
+  test('map with string', async () => {
+    const result = await ordered()
+      .map('name')
+      .toArray()
+      .resolve({ name: 'John', }, { name: 'Lisa', });
+
+    expect(result).toEqual([ 'John', 'Lisa', ]);
   });
 
   test('toArray', async() => {
