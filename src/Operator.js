@@ -13,17 +13,17 @@ class Operator {
     const { middlewares, } = this;
     let output = undefined;
     let pushResolver  = {
-      retired: new And(),
+      active: new And(),
       resolve: function resolveInvoke () {},
       next: function invoke (val) {
         output = val;
       },
     };
-    const { retired, next, resolve, } = middlewares
+    const { active, next, resolve, } = middlewares
       .slice()
       .reverse()
       .reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), pushResolver);
-    for (let i = 0; i<sources.length && retired.call(); i++) {
+    for (let i = 0; i<sources.length && active.call(); i++) {
       await next(sources[i], [ i, ], new And());
     }
     await resolve();

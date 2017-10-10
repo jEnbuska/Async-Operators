@@ -2,11 +2,11 @@
 const { NOT_SET, createSet, orderComparator, entriesToObject, } = require('./utils');
 
 function first () {
-  return function createFirst ({ resolve, retired, next, }) {
+  return function createFirst ({ resolve, active, next, }) {
     let value = NOT_SET;
-    retired = retired.concat(() => value === NOT_SET);
+    active = active.concat(() => value === NOT_SET);
     return {
-      retired,
+      active,
       resolve: async function resolveFirst () {
         const output = value;
         value = NOT_SET;
@@ -14,7 +14,7 @@ function first () {
         await resolve();
       },
       next: function createFirst (val) {
-        if (retired.call()) {
+        if (active.call()) {
           value = val;
         }
       },
@@ -23,7 +23,7 @@ function first () {
 }
 
 function default$ (defaultValue) {
-  return function createDefault ({ next, resolve, retired, }) {
+  return function createDefault ({ next, resolve, active, }) {
     let isSet = false;
     return {
       resolve: async function resolveDefault () {
@@ -35,7 +35,7 @@ function default$ (defaultValue) {
         await resolve();
       },
       next: function invokeDefault (val) {
-        if (retired.call()) {
+        if (active.call()) {
           isSet = true;
           return next(val);
         }
@@ -45,7 +45,7 @@ function default$ (defaultValue) {
 }
 
 function reverse () {
-  return function createReverse ({ next, retired, resolve, }) {
+  return function createReverse ({ next, active, resolve, }) {
     let futures = [];
     return {
       resolve: async function resolveReversed () {
@@ -56,7 +56,7 @@ function reverse () {
         await resolve();
       },
       next: function invokeReverse (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           futures.push(() => next(val, order));
           return true;
         }
@@ -66,7 +66,7 @@ function reverse () {
 }
 
 function sort (comparator) {
-  return function createSort ({ next, retired, resolve, }) {
+  return function createSort ({ next, active, resolve, }) {
     let futures = [];
     return {
       resolve: async function resolveSort () {
@@ -79,7 +79,7 @@ function sort (comparator) {
         return resolve();
       },
       next: function invokeReverse (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           futures.push({ val, task: () => next(val, order), });
           return true;
         }
@@ -89,10 +89,10 @@ function sort (comparator) {
 }
 
 function peek (callback) {
-  return function createPeek ({ retired, next, }) {
+  return function createPeek ({ active, next, }) {
     return {
       next: function invokePeek (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           callback(val);
           return next(val, order);
         }
@@ -102,7 +102,7 @@ function peek (callback) {
 }
 
 function toArray () {
-  return function createToArray ({ retired, next, resolve, }) {
+  return function createToArray ({ active, next, resolve, }) {
     let acc = [];
     return {
       resolve: async function resolveToArray () {
@@ -112,7 +112,7 @@ function toArray () {
         await resolve();
       },
       next: function invokeToArray (val) {
-        if (retired.call()) {
+        if (active.call()) {
           acc.push(val);
           return true;
         }
@@ -122,7 +122,7 @@ function toArray () {
 }
 
 function toSet (picker) {
-  return function createToArray ({ retired, next, resolve, }) {
+  return function createToArray ({ active, next, resolve, }) {
     let acc = new Set();
     return {
       resolve: async function resolveToSet () {
@@ -132,7 +132,7 @@ function toSet (picker) {
         await resolve();
       },
       next: function invokeToSet (val) {
-        if (retired.call()) {
+        if (active.call()) {
           acc.add(picker(val));
           return true;
         }
@@ -142,7 +142,7 @@ function toSet (picker) {
 }
 
 function toObject (picker) {
-  return function createToObject ({ retired, next, resolve, }) {
+  return function createToObject ({ active, next, resolve, }) {
     let acc = {};
     return {
       resolve: async function resolveToObject () {
@@ -152,7 +152,7 @@ function toObject (picker) {
         await resolve();
       },
       next: function invokeToObject (val) {
-        if (retired.call()) {
+        if (active.call()) {
           acc[picker(val)] = val;
           return true;
         }
@@ -162,7 +162,7 @@ function toObject (picker) {
 }
 
 function toObjectSet (picker) {
-  return function createToArray ({ retired, next, resolve, }) {
+  return function createToArray ({ active, next, resolve, }) {
     let acc = {};
     return {
       resolve: async function resolveToObjectSet () {
@@ -172,7 +172,7 @@ function toObjectSet (picker) {
         await resolve();
       },
       next: function invokeToObjectSet (val) {
-        if (retired.call()) {
+        if (active.call()) {
           acc[picker(val)] = true;
           return true;
         }
@@ -181,7 +181,7 @@ function toObjectSet (picker) {
   };
 }
 function toMap (picker) {
-  return function createToMap ({ retired, next, resolve, }) {
+  return function createToMap ({ active, next, resolve, }) {
     let acc = new Map();
     return {
       resolve: async function resolveToMap () {
@@ -191,7 +191,7 @@ function toMap (picker) {
         await resolve();
       },
       next: function invokeToObject (val) {
-        if (retired.call()) {
+        if (active.call()) {
           acc.set(picker(val), val);
           return true;
         }
@@ -201,7 +201,7 @@ function toMap (picker) {
 }
 
 function ordered () {
-  return function createOrdered ({ next, retired, resolve, }) {
+  return function createOrdered ({ next, active, resolve, }) {
     let futures = {};
     return {
       resolve: async function resolveOrdered () {
@@ -212,7 +212,7 @@ function ordered () {
         await resolve();
       },
       next: function invokeOrdered (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           futures[order] = () => next(val, order);
           return true;
         }
@@ -222,10 +222,10 @@ function ordered () {
 }
 
 function flatten (iterator) {
-  return function createFlatten ({ next, retired, }) {
+  return function createFlatten ({ next, active, }) {
     return {
       next: async function invokeFlatten (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           const iterable = iterator(val);
           for (let i = 0; i<iterable.length; i++) {
             const flattenResult = await next(iterable[i], [ ...order, i, ]);
@@ -241,10 +241,10 @@ function flatten (iterator) {
 }
 
 function map (mapper) {
-  return function createMap ({ next, retired, }) {
+  return function createMap ({ next, active, }) {
     return {
       next: function invokeMap (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           return next(mapper(val), order);
         }
       },
@@ -253,7 +253,7 @@ function map (mapper) {
 }
 
 function parallel () {
-  return function createParallel ({ next, retired, resolve, }) {
+  return function createParallel ({ next, active, resolve, }) {
     let futures = [];
     return {
       resolve: async function resolveParallel () {
@@ -263,7 +263,7 @@ function parallel () {
         await resolve();
       },
       next: function invokeParallel (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           futures.push(() => next(val, order));
           return true;
         }
@@ -274,10 +274,10 @@ function parallel () {
 
 function pick (keys) {
   const keySet = createSet(keys);
-  return function createPick ({ next, retired, }) {
+  return function createPick ({ next, active, }) {
     return {
       next: function invokePick (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           val = Object.entries(val)
             .filter(e => keySet[e[0]])
             .reduce(entriesToObject, {});
@@ -289,7 +289,7 @@ function pick (keys) {
 }
 
 function distinctBy (picker) {
-  return function createDistinctBy ({ resolve, next, retired, }) {
+  return function createDistinctBy ({ resolve, next, active, }) {
     let history = {};
     return {
       resolve: async function resolveDistinctBy () {
@@ -297,7 +297,7 @@ function distinctBy (picker) {
         await resolve();
       },
       next: function invokeDistinctBy (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           const key = picker(val);
           if (!history[key]) {
             history[key] = true;
@@ -310,7 +310,7 @@ function distinctBy (picker) {
   };
 }
 function distinct () {
-  return function createDistinct ({ resolve, next, retired, }) {
+  return function createDistinct ({ resolve, next, active, }) {
     let history = {};
     return {
       resolve: async function resolveDistinct () {
@@ -318,7 +318,7 @@ function distinct () {
         await resolve();
       },
       next: function invokeDistinct (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           if (!history[val]) {
             history[val] = true;
             return next(val, order);
@@ -331,10 +331,10 @@ function distinct () {
 }
 
 function filter (predicate) {
-  return function createFilter ({ retired, next, }) {
+  return function createFilter ({ active, next, }) {
     return {
       next: function invokeFilter (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           if (predicate(val)) {
             return next(val, order);
           }
@@ -346,10 +346,10 @@ function filter (predicate) {
 }
 
 function reject (predicate) {
-  return function createReject ({ retired, next, }) {
+  return function createReject ({ active, next, }) {
     return {
       next: function invokeReject (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           if (!predicate(val)) {
             return next(val, order);
           }
@@ -362,10 +362,10 @@ function reject (predicate) {
 
 function omit (keys) {
   const rejectables = new Set(keys);
-  return function createOmit ({ retired, next, }) {
+  return function createOmit ({ active, next, }) {
     return {
       next: function invokeOmit (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           val = Object.entries(val).filter(e => !rejectables.has(e[0])).reduce(entriesToObject, {});
 
           return next(val, order);
@@ -377,10 +377,10 @@ function omit (keys) {
 
 function where (matcher) {
   const matchEntries = Object.entries(matcher);
-  return function createWhere ({ retired, next,  }) {
+  return function createWhere ({ active, next,  }) {
     return {
       next: function invokeWhere (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           for (const e of matchEntries) {
             if (val[e[0]] !== e[1]) {
               return true;
@@ -394,7 +394,7 @@ function where (matcher) {
 }
 
 function skipWhile (predicate) {
-  return function createSkipWhile ({ resolve, retired, next, }) {
+  return function createSkipWhile ({ resolve, active, next, }) {
     let take = false;
     return {
       resolve: function resolveSkipWhile () {
@@ -402,7 +402,7 @@ function skipWhile (predicate) {
         return resolve();
       },
       next: function invokeSkipWhile (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           if (take || (take = !predicate(val))) {
             return next(val, order);
           }
@@ -414,7 +414,7 @@ function skipWhile (predicate) {
 }
 
 function scan (scanner, acc) {
-  return function createScan ({ resolve, retired, next, }) {
+  return function createScan ({ resolve, active, next, }) {
     let output = acc;
     let futures = [];
     return {
@@ -424,7 +424,7 @@ function scan (scanner, acc) {
         return resolve();
       },
       next: async function invokeScan (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           futures.push(async (input) => {
             const result = scanner(input, val);
             output = result;
@@ -446,16 +446,16 @@ function scan (scanner, acc) {
 }
 
 function takeUntil (predicate) {
-  return function createTakeUntil ({ resolve, retired, next, }) {
+  return function createTakeUntil ({ resolve, active, next, }) {
     let take = true;
     return {
       resolve: function resolveTakeUntil () {
         take=true;
         return resolve();
       },
-      retired: retired.concat(() => take),
+      active: active.concat(() => take),
       next: function invokeTakeUntil (val, order) {
-        if (retired.call() && take && (take = !predicate(val))) {
+        if (active.call() && take && (take = !predicate(val))) {
           return next(val, order);
         }
       },
@@ -464,16 +464,16 @@ function takeUntil (predicate) {
 }
 
 function takeWhile (predicate) {
-  return function createTakeWhile ({ resolve, retired, next, }) {
+  return function createTakeWhile ({ resolve, active, next, }) {
     let take = true;
     return {
       resolve: function resolveTakeWhile () {
         take = true;
         return resolve();
       },
-      retired: retired.concat(() => take),
+      active: active.concat(() => take),
       next: function invokeTakeWhile (val, order) {
-        if (take && (take = predicate(val)) && retired.call()) {
+        if (take && (take = predicate(val)) && active.call()) {
           return next(val, order);
         }
       },
@@ -483,11 +483,11 @@ function takeWhile (predicate) {
 
 function skip (count) {
   count = Number(count) || 0;
-  return function createSkip ({ retired, next, }) {
+  return function createSkip ({ active, next, }) {
     let total = 0;
     return {
       next: function invokeSkip (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           if (total>=count) {
             return next(val, order);
           } else {
@@ -500,17 +500,17 @@ function skip (count) {
   };
 }
 function take (max) {
-  return function createTake ({ resolve, retired, next, }) {
+  return function createTake ({ resolve, active, next, }) {
     max = Number(max) || 0;
     let taken = 0;
     return {
-      retired: retired.concat(() => taken < max),
+      active: active.concat(() => taken < max),
       resolve: function resolveTake () {
         taken = 0;
         return resolve();
       },
       next: function invokeTake (val, order) {
-        if (taken < max && retired.call()) {
+        if (taken < max && active.call()) {
           taken++;
           return next(val, order);
         }
@@ -520,7 +520,7 @@ function take (max) {
 }
 
 function sum () {
-  return function createSum ({ next, retired, resolve, }) {
+  return function createSum ({ next, active, resolve, }) {
     let total = 0;
     return {
       resolve: async function resolveSum () {
@@ -530,7 +530,7 @@ function sum () {
         await resolve();
       },
       next: function invokeSum (val) {
-        if (retired.call()) {
+        if (active.call()) {
           total +=val;
           return true;
         }
@@ -540,7 +540,7 @@ function sum () {
 }
 
 function reduce (reducer, acc) {
-  return function createReduce ({ next, retired, resolve, }) {
+  return function createReduce ({ next, active, resolve, }) {
     let output = acc;
     return {
       resolve: async function resolveReduce () {
@@ -550,7 +550,7 @@ function reduce (reducer, acc) {
         await resolve();
       },
       next: function invokeReduce (val) {
-        if (retired.call()) {
+        if (active.call()) {
           output = reducer(output, val);
           return true;
         }
@@ -560,11 +560,11 @@ function reduce (reducer, acc) {
 }
 
 function some (predicate) {
-  return function createSome ({ next, retired, resolve, }) {
+  return function createSome ({ next, active, resolve, }) {
     let output = false;
-    retired = retired.concat(() => !output);
+    active = active.concat(() => !output);
     return {
-      retired,
+      active,
       resolve: async function resolveSome () {
         const result = output;
         output = false;
@@ -572,7 +572,7 @@ function some (predicate) {
         await resolve();
       },
       next: function invokeSome (val) {
-        if (retired.call()) {
+        if (active.call()) {
           return !!(output = predicate(val));
         }
       },
@@ -581,11 +581,11 @@ function some (predicate) {
 }
 
 function every (predicate) {
-  return function createEvery ({ next, retired, resolve,  }) {
+  return function createEvery ({ next, active, resolve,  }) {
     let output = true;
-    retired = retired.concat(() => output);
+    active = active.concat(() => output);
     return {
-      retired,
+      active,
       resolve: async function resolveEvery () {
         const result = output;
         output = true;
@@ -593,7 +593,7 @@ function every (predicate) {
         return resolve();
       },
       next: function invokeEvery (val) {
-        if (retired.call()) {
+        if (active.call()) {
           return output = !!predicate(val);
         }
       },
@@ -602,12 +602,12 @@ function every (predicate) {
 }
 
 function await$ (mapper) {
-  return function createAwait$ ({ next, retired, }) {
+  return function createAwait$ ({ next, active, }) {
     return {
       next: async function invokeAwait$ (val, order) {
-        if (retired.call()) {
+        if (active.call()) {
           await next(await mapper(val), order);
-          return retired.call();
+          return active.call();
         }
       },
     };
@@ -615,7 +615,7 @@ function await$ (mapper) {
 }
 
 function min (comparator) {
-  return function createMin ({ next, retired, resolve, }) {
+  return function createMin ({ next, active, resolve, }) {
     let min = NOT_SET;
     return {
       resolve: async function resolveMin () {
@@ -625,7 +625,7 @@ function min (comparator) {
         await resolve();
       },
       next: function invokeMin (val) {
-        if (retired.call()) {
+        if (active.call()) {
           if (min!==NOT_SET) {
             if (comparator(min, val) > 0) {
               min = val;
@@ -641,7 +641,7 @@ function min (comparator) {
 }
 
 function max (comparator) {
-  return function createMin ({ next, retired, resolve, }) {
+  return function createMin ({ next, active, resolve, }) {
     let max = NOT_SET;
     return {
       resolve: async function resolveMax () {
@@ -651,7 +651,7 @@ function max (comparator) {
         await resolve();
       },
       next: function invokeMax (val) {
-        if (retired.call()) {
+        if (active.call()) {
           if (max!==NOT_SET) {
             if (comparator(max, val) < 0) {
               max = val;
@@ -667,7 +667,7 @@ function max (comparator) {
 }
 
 function groupBy (callback) {
-  return function createGroupBy ({ next, retired, resolve, }) {
+  return function createGroupBy ({ next, active, resolve, }) {
     let groups = {};
     return {
       resolve: async function resolveGroupBy () {
@@ -677,7 +677,7 @@ function groupBy (callback) {
         await resolve();
       },
       next: function invokeGroupBy (val) {
-        if (retired.call()) {
+        if (active.call()) {
           const group = callback(val);
           if (!groups[group]) {
             groups[group] = [];
