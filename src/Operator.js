@@ -76,6 +76,13 @@ class Operator {
     return this._create(middlewareCreators.toArray());
   }
 
+  groupBy (callback) {
+    if (typeof callback === 'string') {
+      callback = createPropertySelector(callback);
+    }
+    return this._create(middlewareCreators.groupBy(callback));
+  }
+
   toObjectSet (picker = identity) {
     if (typeof picker === 'string') {
       picker = createPropertySelector(picker);

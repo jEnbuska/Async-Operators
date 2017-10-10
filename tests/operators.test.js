@@ -460,5 +460,19 @@ describe('operators', async () => {
       .resolve(1, 2, 3, -1, );
     expect(result).toBe(3);
   });
+
+  test('groupBy with string instead callback as param', async () => {
+    const result = await ordered()
+      .groupBy('name')
+      .resolve({ name: 'John', age: 20, }, { name: 'Lisa', age: 30, }, { name: 'John', age: 25, });
+    expect(result).toEqual({ John: [ { name: 'John', age: 20, }, { name: 'John', age: 25, }, ], Lisa: [ { name: 'Lisa', age: 30, }, ], });
+  });
+
+  test('groupBy with callback function', async () => {
+    const result = await ordered()
+      .groupBy(next => next.name)
+      .resolve({ name: 'John', age: 20, }, { name: 'Lisa', age: 30, }, { name: 'John', age: 25, });
+    expect(result).toEqual({ John: [ { name: 'John', age: 20, }, { name: 'John', age: 25, }, ], Lisa: [ { name: 'Lisa', age: 30, }, ], });
+  });
 });
 

@@ -665,7 +665,33 @@ function max (comparator) {
     };
   };
 }
+
+function groupBy (callback) {
+  return function createGroupBy ({ next, retired, resolve, }) {
+    let groups = {};
+    return {
+      resolve: async function resolveGroupBy () {
+        const result = { ...groups, };
+        groups = {};
+        await next(result);
+        await resolve();
+      },
+      next: function invokeGroupBy (val) {
+        if (retired.call()) {
+          const group = callback(val);
+          if (!groups[group]) {
+            groups[group] = [];
+          }
+          groups[group].push(val);
+          return true;
+        }
+      },
+    };
+  };
+}
+
 module.exports = {
+  groupBy,
   first,
   reverse,
   sort,
