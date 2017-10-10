@@ -31,6 +31,7 @@ console.log(agedJohn); // { name: 'John', age: 26, }
 ```
 .toArray()
 .reduce(callback, acc)
+.groupBy(string | callback)
 .toObject(string | callback)
 .toObjectSet(string | callback)
 .toSet(string | callback)
@@ -52,7 +53,7 @@ console.log(agedJohn); // { name: 'John', age: 26, }
 .reject(string | callback)
 .where(object) 
 ```
-######Explanations
+#####Explanations
 ```
 .filter(/*without parameters*/)
   same as --> filter(val => !!val)
@@ -71,7 +72,7 @@ console.log(agedJohn); // { name: 'John', age: 26, }
 .pick(...strings)
 .omit(...strings)
 ```
-######Explanations
+#####Explanations
 ```
 .map(callback); //same as [...].map(callback)
 .map('name');// same as [...].map(it => it.name)
@@ -92,7 +93,7 @@ console.log(agedJohn); // { name: 'John', age: 26, }
 .entries() //same as .flatten(Object.entries)
 .flatten(undefined | callback)
 ```
-######Explanations
+#####Explanations
 default flattener for 'flatten' is Object.values
 ## flow control filters:
 ```
@@ -104,7 +105,7 @@ default flattener for 'flatten' is Object.values
 .distinct()
 .distinctBy(string | callback)
 ```
-######Explanations
+#####Explanations
 State of these flow control middlewares have their internal state. This internal state is not shared between different resolves
 ```
 const pipe = parallel().take(1);
@@ -120,7 +121,7 @@ stops all other ongoing operations downstream when their goal is hit
 .reverse()
 .sort(undefined | callback)
 ```
-######Explanations
+#####Explanations
 * middlewares 'ordered, reverse, and sort', are blocking the upstream execution until all downstream operations are finished
 * parallel execution stops being parallel on 'ordered,  reverse, sort' middlewares.
 * parallel execution is not recursively parallel by default:
@@ -138,7 +139,7 @@ parallel() // --> parallel
 await(callback)
 default(any)
 ```
-######Explanations
+#####Explanations
 ```
 const result = await ordered()
   .filter(it => it!==1)
