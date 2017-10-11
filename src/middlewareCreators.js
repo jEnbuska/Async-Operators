@@ -673,7 +673,7 @@ function groupBy (callback) {
       resolve: async function resolveGroupBy () {
         const result = { ...groups, };
         groups = {};
-        await next(result);
+        await next(result, [ 0, ]);
         await resolve();
       },
       next: function invokeGroupBy (val) {
