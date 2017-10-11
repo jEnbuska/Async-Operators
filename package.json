@@ -5,7 +5,7 @@
   "engines": {
     "node": ">=8"
   },
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": "jEnbuska <joonaenb@gmail.com>",
   "license": "MIT",
   "repository": {
@@ -15,7 +15,6 @@
   "keywords": ["async"],
   "scripts": {
     "lint-fix": "eslint --ext .jsx --ext .js . --fix",
-    "prepublish": "npm run lint-fix",
     "test": "jest",
     "test:watch": "npm run test -- --watch"
   },
