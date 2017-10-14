@@ -24,7 +24,7 @@ class Operator {
       .reverse()
       .reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), pushResolver);
     for (let i = 0; i<sources.length && active.call(); i++) {
-      await next(sources[i], [ i, ], new And());
+      await next(sources[i], {}, [ i, ]);
     }
     await resolve();
     return output;
@@ -58,6 +58,14 @@ class Operator {
 
   first () {
     return this._create(middlewareCreators.first());
+  }
+
+  keep (picker = identity) {
+    if (typeof picker === 'string') {
+      const str = picker;
+      picker = val => ({ [str]: val[str], });
+    }
+    return this._create(middlewareCreators.keep(picker));
   }
 
   keys () {
@@ -127,8 +135,11 @@ class Operator {
     return this._create(middlewareCreators.take(max));
   }
 
-  sum () {
-    return this._create(middlewareCreators.sum());
+  sum (summer = identity) {
+    if (typeof summer === 'string') {
+      summer = createPropertySelector(summer);
+    }
+    return this._create(middlewareCreators.sum(summer));
   }
 
   where (matcher) {
