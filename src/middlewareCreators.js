@@ -259,12 +259,12 @@ function parallel () {
       resolve: async function resolveParallel () {
         const copy = futures.slice();
         futures = [];
-        await Promise.all(copy.map(task => task()));
+        await Promise.all(copy);
         await resolve();
       },
       next: function invokeParallel (val, order) {
         if (active.call()) {
-          futures.push(() => next(val, order));
+          futures.push(next(val, order));
           return true;
         }
       },
