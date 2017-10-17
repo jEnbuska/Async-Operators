@@ -1,6 +1,6 @@
 const middlewareCreators = require('./middlewareCreators');
 const And = require('./CompositeAnd');
-const { createPropertyFilter, createPropertySelector, defaultFilter, identity, defaultComparator, } = require('./utils');
+const { createPropertyFilter, createPropertySelector, defaultFilter, identity, defaultComparator, createComparator, createCompositeComparator, } = require('./utils');
 /* eslint-disable consistent-return */
 
 class Operator {
@@ -123,8 +123,14 @@ class Operator {
     return this._create(middlewareCreators.reverse());
   }
 
-  sort (comparator = defaultComparator) {
-    return this._create(middlewareCreators.sort(comparator));
+  sort (comparator = defaultComparator, ...rest) {
+    const comparators = [ comparator, ...rest, ];
+    for (let i = 0; i<comparators.length; i++) {
+      if (typeof comparators[i] !== 'function') {
+        comparators[i] = createComparator(comparators[i]);
+      }
+    }
+    return this._create(middlewareCreators.sort(createCompositeComparator(comparators)));
   }
 
   await (mapper = identity) {

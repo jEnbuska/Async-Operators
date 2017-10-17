@@ -60,10 +60,34 @@ function defaultComparator (a, b) {
   return 1;
 }
 
+function createComparator (key) {
+  return function comparator (a, b) {
+    if (a[key]===b[key]) {
+      return 0;
+    }
+    if (a[key]<b[key]) {
+      return -1;
+    }
+    return 1;
+  };
+}
+function createCompositeComparator (comparators) {
+  return function compositeComparator (a, b) {
+    for (const comp of comparators) {
+      const diff = comp(a, b);
+      if (diff!==0) {
+        return diff;
+      }
+    }
+    return 0;
+  }
+}
+
 module.exports = {
   NOT_SET,
   defaultFilter,
   reduceToArray,
+  createCompositeComparator,
   createPropertyFilter,
   createPropertySelector,
   identity,
@@ -71,4 +95,5 @@ module.exports = {
   entriesToObject,
   orderComparator,
   defaultComparator,
+  createComparator,
 };
