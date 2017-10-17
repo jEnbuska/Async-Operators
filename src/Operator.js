@@ -123,6 +123,7 @@ class Operator {
     return this._create(middlewareCreators.reverse());
   }
 
+  // TODO [${key}, 'ASC'] && [${key}, 'DESC']
   sort (comparator = defaultComparator, ...rest) {
     const comparators = [ comparator, ...rest, ];
     for (let i = 0; i<comparators.length; i++) {
