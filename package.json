@@ -3,7 +3,7 @@
   "description": "lazy async handling",
   "main": "index.js",
   "engines": {
-    "node": ">=8"
+    "node": ">=7"
   },
   "version": "1.0.0",
   "author": "jEnbuska <joonaenb@gmail.com>",
