@@ -1,7 +1,7 @@
 const { values, } = Object;
 
 const NOT_SET = Symbol('NOT_SET');
-export const comparatorError = new Error('Expected comparator to be type of function, or object with shape `{[propA]: "ASC", [propB]: "DESC"}`');
+const comparatorError = new Error('Expected comparator to be type of function, or object with shape `{[propA]: "ASC", [propB]: "DESC"}`');
 
 function defaultFilter (val) {
   return !!val;
@@ -95,4 +95,5 @@ module.exports = {
   orderComparator,
   defaultComparator,
   createComparator,
+  comparatorError,
 };
