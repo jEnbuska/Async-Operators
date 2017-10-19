@@ -7,10 +7,6 @@ function defaultFilter (val) {
   return !!val;
 }
 
-function reduceToArray (acc = [], next) {
-  return [ ...acc, next, ];
-}
-
 function createPropertyFilter (prop) {
   return function propertyFilter (val) {
     return !!val && val[prop];
@@ -85,17 +81,6 @@ function createComparator (obj) {
       result = comparators[i](a, b);
     }
     return result;
-  };
-}
-function createCompositeComparator (comparators) {
-  return function compositeComparator (a, b) {
-    for (const comp of comparators) {
-      const diff = comp(a, b);
-      if (diff!==0) {
-        return diff;
-      }
-    }
-    return 0;
   };
 }
 
