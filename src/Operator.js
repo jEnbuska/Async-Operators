@@ -1,6 +1,6 @@
 const middlewareCreators = require('./middlewareCreators');
 const And = require('./CompositeAnd');
-const { createPropertyFilter, createPropertySelector, defaultFilter, identity, defaultComparator, createComparator, comparatorError, } = require('./utils');
+const { createPropertyFilter, createPropertySelector, defaultFilter, identity, defaultComparator, createComparator, comparatorError, createGrouper, } = require('./utils');
 /* eslint-disable consistent-return */
 
 class Operator {
@@ -84,11 +84,8 @@ class Operator {
         return this._create(middlewareCreators.toArray());
     }
 
-    groupBy (callback) {
-        if (typeof callback === 'string') {
-            callback = createPropertySelector(callback);
-        }
-        return this._create(middlewareCreators.groupBy(callback));
+    groupBy (...keys) {
+        return this._create(middlewareCreators.groupBy(createGrouper(keys)));
     }
 
     toObjectSet (picker = identity) {

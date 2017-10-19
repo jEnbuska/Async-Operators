@@ -679,21 +679,17 @@ function max (comparator) {
 
 function groupBy (callback) {
     return function createGroupBy ({ next, active, resolve, }) {
-        let groups = {};
+        let acc = {};
         return {
             resolve: async function resolveGroupBy () {
-                const result = { ...groups, };
-                groups = {};
+                const result = { ...acc, };
+                acc = {};
                 await next(result, {}, [ 0, ]);
                 await resolve();
             },
-            next: function invokeGroupBy (val, keep) {
+            next: function invokeGroupBy (val) {
                 if (active.call()) {
-                    const group = callback(val, keep);
-                    if (!groups[group]) {
-                        groups[group] = [];
-                    }
-                    groups[group].push(val);
+                    callback(acc, val);
                     return true;
                 }
             },

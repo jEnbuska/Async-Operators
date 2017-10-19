@@ -57,6 +57,23 @@ function defaultComparator (a, b) {
     return 1;
 }
 
+function createGrouper (keys) {
+    const tail = keys.pop();
+    return function nestedGrouper (acc, val) {
+        for (const k of keys) {
+            const subVal = val[k];
+            if (!acc[subVal]) {
+                acc[subVal] = {};
+            }
+            acc = acc[subVal];
+        }
+        if (!acc[val[tail]]) {
+            acc[val[tail]] = [];
+        }
+        acc[val[tail]].push(val);
+    };
+}
+
 const ASC = 'ASC';
 const DESC = 'DESC';
 function createComparator (obj) {
@@ -96,6 +113,7 @@ module.exports = {
     defaultComparator,
     createComparator,
     comparatorError,
+    createGrouper,
     ASC,
     DESC,
 };

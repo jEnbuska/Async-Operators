@@ -31,7 +31,7 @@ console.log(agedJohn); // { name: 'John', age: 26, }
 ```
 .toArray()
 .reduce(callback, acc)
-.groupBy(string | callback)
+.groupBy(...strings)
 .toObject(string | callback)
 .toObjectSet(string | callback)
 .toSet(string | callback)
@@ -46,6 +46,11 @@ console.log(agedJohn); // { name: 'John', age: 26, }
 #####Note that reducing operators can be continued:
 
 ```await ordered().sum().map(sum => sum*2).resolve(1,2,3); // --> 12 ```
+```groupBy can take multiple arguments. The more arguments are given, more structured the end result will be
+await ordered()
+  .groupBy('gender', 'age')
+  .resolve({gender: 0, age: 25, name: 'Tim'}) //--> { 0, { 25: [{gender: 0, age: 25, name: 'Tim' }] } }
+```
 
 ## filtering operators:
 ```
