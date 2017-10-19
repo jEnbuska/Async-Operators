@@ -84,10 +84,10 @@ function sort (comparator) {
       resolve: async function resolveSort () {
         const runnables = futures.sort(function (a, b) {
           return comparator(a.val, b.val);
-        });
+        }).map(it => it.task);
         futures = [];
         // eslint-disable-next-line no-empty
-        for (let i = 0; i < runnables.length && await runnables[i].task(); i++) {}
+        for (let i = 0; i < runnables.length && await runnables[i](); i++) {}
         return resolve();
       },
       next: function invokeReverse (val, keep, order) {
