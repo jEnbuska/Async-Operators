@@ -19,7 +19,7 @@
     "max-len": [0, {"code": 200}], /*airbnb default maxlength causes problems with my ide*/
     "no-underscore-dangle": 0,
     "comma-dangle" : ["warn", "always"],
-    "indent": ["warn",2, {"SwitchCase": 1}],
+    "indent": ["warn",4, {"SwitchCase": 1}],
     "camelcase": ["warn", {"properties": "always"}],
     "comma-spacing": ["warn", {"after": true}],
     "array-bracket-spacing":["warn", "always"],

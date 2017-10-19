@@ -1,12 +1,15 @@
 const Operator = require('./src/Operator');
+const { ASC, DESC, }= require('./src/utils');
 
 function ordered () {
-  return new Operator();
+    return new Operator();
 }
 function parallel () {
-  return new Operator().parallel();
+    return new Operator().parallel();
 }
 module.exports = {
-  ordered,
-  parallel,
+    ordered,
+    parallel,
+    ASC,
+    DESC,
 };
