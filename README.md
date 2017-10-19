@@ -119,12 +119,16 @@ stops all other ongoing operations downstream when their goal is hit
 .parallel()
 .ordered()
 .reverse()
-.sort(undefined | callback)
+.sort(undefined | callback | object)
 ```
 #####Explanations
 * middlewares 'ordered, reverse, and sort', are blocking the upstream execution until all downstream operations are finished
 * parallel execution stops being parallel on 'ordered,  reverse, sort' middlewares.
 * parallel execution is not recursively parallel by default:
+* sort without param or with callback sorts the values as expected
+* sort with object parameter expect an object with shape of: 
+   ```{propName1: 'DESC', propName2: 'ASC'}```
+
 ```
 parallel() // --> parallel
  .await()
@@ -177,6 +181,7 @@ async function parallelMapDistinctFilter(){
     .filter(it => it !== 8)
     .toArray();
 
+  // The order might vary
   const result = await pipe.resolve(5, 4, 3, 2, 1, 2, 3, 4, 5);
   expect(result).toEqual([ 2, 4, 6, 10, ]);
   const result2 = await pipe.resolve(4, 3, 2, 1);

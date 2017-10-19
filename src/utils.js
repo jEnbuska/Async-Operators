@@ -1,6 +1,7 @@
 const { values, } = Object;
 
 const NOT_SET = Symbol('NOT_SET');
+export const comparatorError = new Error('Expected comparator to be type of function, or object with shape `{[propA]: "ASC", [propB]: "DESC"}`');
 
 function defaultFilter (val) {
   return !!val;
@@ -60,15 +61,30 @@ function defaultComparator (a, b) {
   return 1;
 }
 
-function createComparator (key) {
+const ASC = 'ASC';
+const DESC = 'DESC';
+function createComparator (obj) {
+  const comparators = Object.entries(obj).map(([ property, direction, ]) => {
+    if (direction !== DESC && direction !== ASC) {
+      throw comparatorError;
+    }
+    return function comparator (a, b) {
+      const same = a[property] === b[property];
+      if (same) {
+        return 0;
+      }
+      if (a[property] < b[property]) {
+        return direction === DESC ? -1 : 1;
+      }
+      return direction === DESC ? 1 : -1;
+    };
+  });
   return function comparator (a, b) {
-    if (a[key]===b[key]) {
-      return 0;
+    let result = 0;
+    for (let i = 0; i<comparators.length && result === 0; i++) {
+      result = comparators[i](a, b);
     }
-    if (a[key]<b[key]) {
-      return -1;
-    }
-    return 1;
+    return result;
   };
 }
 function createCompositeComparator (comparators) {
@@ -80,14 +96,12 @@ function createCompositeComparator (comparators) {
       }
     }
     return 0;
-  }
+  };
 }
 
 module.exports = {
   NOT_SET,
   defaultFilter,
-  reduceToArray,
-  createCompositeComparator,
   createPropertyFilter,
   createPropertySelector,
   identity,
