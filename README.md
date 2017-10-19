@@ -1,7 +1,9 @@
 Performs asynchronous operations using
 familiar functions like 'map', 'filter', 'reduce' etc..
+######0 external dependencies
 
-####Required Node 7 >= 
+####Required Node 7 >=
+ 
 <b>examples at the bottom of the page</b>
 ###### more examples under tests/operators.test.js
 ```npm install --save async_operators```
