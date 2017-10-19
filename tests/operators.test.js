@@ -162,7 +162,7 @@ describe('operators', async () => {
 
   test('sort multiple secondary comparisons', async() => {
     const result = await ordered()
-      .sort({ age: 'DESC', income: 'ASC', gender: 'DESC', })
+      .sort({ age: 'ASC', income: 'DESC', gender: 'ASC', })
       .toArray()
       .resolve(
         { name: 'John', age: 25, gender: 1, income: 3000, },

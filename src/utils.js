@@ -70,9 +70,9 @@ function createComparator (obj) {
         return 0;
       }
       if (a[property] < b[property]) {
-        return direction === DESC ? -1 : 1;
+        return direction === ASC ? -1 : 1;
       }
-      return direction === DESC ? 1 : -1;
+      return direction === ASC ? 1 : -1;
     };
   });
   return function comparator (a, b) {
@@ -96,4 +96,6 @@ module.exports = {
   defaultComparator,
   createComparator,
   comparatorError,
+  ASC,
+  DESC,
 };
