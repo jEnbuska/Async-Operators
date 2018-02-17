@@ -324,11 +324,9 @@ function parallel (limit) {
                 let local = ++index;
                 if (active.call()) {
                     if (limit && limit<activeTaskCount) {
-                        console.log('push ' + (local));
                         futures.push(() => {
                             const output = next(val, keep, order);
                             if (output && output.then) {
-                                console.log('next ' + local);
                                 activeTaskCount++;
                                 return output.then(onNext);
                             }
@@ -529,7 +527,6 @@ function takeUntil (predicate) {
             },
             active: active.concat(() => take),
             next: function invokeTakeUntil (val, keep, order) {
-                console.log({ res: active.call() && take && (take = !predicate(val, keep)), });
                 if (active.call() && take && (take = !predicate(val, keep))) {
                     return next(val, keep, order);
                 }

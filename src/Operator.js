@@ -275,6 +275,7 @@ class Operator {
     }
 
     takeUntil (predicate) {
+        console.log('create take until');
         const type = typeof predicate;
         if (type === 'string') {
             predicate = createPropertyFilter(predicate);
