@@ -26,7 +26,7 @@ const products = await from(fetchProductsOneByOne)
     .takeUntil(next => next === 'DONE')
     .map(...)
     .filter(...)
-    .resolve();
+    .consume();
 ```
 ###### parallel(); is simply a shorthand for ordered().parallel();
 ###### from(...) expects a callback function expects to be invoked possible multiple times. Flow control filters are a must when using 'from'.
