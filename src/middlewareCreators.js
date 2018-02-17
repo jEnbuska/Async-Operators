@@ -33,7 +33,7 @@ function from (producer, isSource) {
             };
             resolveCallback = async function resolveFrom () {
                 await Promise.all(toBeResolved);
-                await resolve();
+                return resolve();
             };
         }
         return {

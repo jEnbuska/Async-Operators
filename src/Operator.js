@@ -17,6 +17,7 @@ class Operator {
             resolve () {},
             next (val) {
                 output = val;
+                return true;
             },
         };
         const { active, next, resolve, } = middlewares
