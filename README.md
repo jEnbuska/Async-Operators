@@ -12,11 +12,25 @@ familiar functions like 'map', 'filter', 'reduce' etc..
 
 ## Initializers:
 ```
-const { parallel, ordered } = require('lazy_operators');
-parallel()...
-ordered()...
+const { parallel, ordered, from } = require('lazy_operators');
+await parallel(?number).map(...).filter(...).resolve(...) ...
+await ordered().map(...).filter(...).resolve(...) ...
+
+async function fetchProductsOneByOne(onNext){
+      const productIds = await fetch('/content');
+      await Promise.all(productIds.map(id => fetch('/content/' + id).then(onNext));
+      onNext('DONE') 
+}
+
+const products = await from(fetchProductsOneByOne)
+    .takeUntil(next => next === 'DONE')
+    .map(...)
+    .filter(...)
+    .resolve();
 ```
 ###### parallel(); is simply a shorthand for ordered().parallel();
+###### from(...) expects a callback function expects to be invoked possible multiple times. Flow control filters are a must when using 'from'.
+
 ## resolvers:
 ```
 .resolve(...listOfParams);
@@ -29,6 +43,7 @@ const agedJohn = await ordered()
   .resolve({ name: 'John', age: 25 });
 console.log(agedJohn); // { name: 'John', age: 26, }
 ```
+
 ## reducing operators:
 ```
 .toArray()
