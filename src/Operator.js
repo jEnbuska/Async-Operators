@@ -34,6 +34,28 @@ class Operator {
         return output;
     }
 
+    async consume (..._) {
+        if (_.length) {
+            throw new Error('consume should be called without parameters.');
+        }
+        const { middlewares, } = this;
+        let output = undefined;
+        let pushResolver  = {
+            active: new And(),
+            resolve () {},
+            next () {
+                return true;
+            },
+        };
+        const { resolve, } = middlewares
+            .slice()
+            .reverse()
+            .reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), pushResolver);
+        console.log('created');
+        await resolve();
+        return output;
+    }
+
     from (producer, isSource) {
         return this._create(middlewareCreators.from(producer, isSource));
     }
