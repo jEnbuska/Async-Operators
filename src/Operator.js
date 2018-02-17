@@ -33,6 +33,10 @@ class Operator {
         return output;
     }
 
+    from (producer, isSource) {
+        return this._create(middlewareCreators.from(producer, isSource));
+    }
+
     min (comparator = defaultComparator) {
         return this._create(middlewareCreators.min(comparator));
     }

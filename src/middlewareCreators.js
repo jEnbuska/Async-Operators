@@ -1,5 +1,5 @@
 /* eslint-disable consistent-return */
-const { NOT_SET, createSet, orderComparator, entriesToObject, } = require('./utils');
+const { NOT_SET, createSet, createEmitter, orderComparator, entriesToObject, } = require('./utils');
 
 function keep (callback) {
     return function createKeep ({ active, next, }) {
@@ -9,6 +9,36 @@ function keep (callback) {
                     return next(val, { ...keep, ...callback(val, keep), }, order);
                 }
             },
+        };
+    };
+}
+
+function from (producer, isSource) {
+    return function createFrom ({ next, active, resolve, }) {
+        let toBeResolved = [];
+        let resolveCallback;
+        let nextCallback;
+        if (isSource) {
+            nextCallback = next;
+            resolveCallback = async function resolveFrom () {
+                await createEmitter(producer, next);
+                return resolve();
+            };
+        } else {
+            nextCallback = function invokeFrom (val, keep, order) {
+                if (active.call()) {
+                    toBeResolved.push(createEmitter(producer, next, val, keep, order));
+                    return toBeResolved[toBeResolved.length-1];
+                }
+            };
+            resolveCallback = async function resolveFrom () {
+                await Promise.all(toBeResolved);
+                await resolve();
+            };
+        }
+        return {
+            resolve: resolveCallback,
+            next: nextCallback,
         };
     };
 }
@@ -80,11 +110,12 @@ function reverse () {
 function sort (comparator) {
     return function createSort ({ next, active, resolve, }) {
         let futures = [];
+        const compare = function runComparison (a, b) {
+            return comparator(a.val, b.val);
+        };
         return {
             resolve: async function resolveSort () {
-                const runnables = futures.sort(function (a, b) {
-                    return comparator(a.val, b.val);
-                }).map(it => it.task);
+                const runnables = futures.sort(compare).map(it => it.task);
                 futures = [];
         // eslint-disable-next-line no-empty
                 for (let i = 0; i < runnables.length && await runnables[i](); i++) {}
@@ -264,19 +295,51 @@ function map (mapper) {
     };
 }
 
-function parallel () {
+function parallel (limit) {
     return function createParallel ({ next, active, resolve, }) {
-        let futures = [];
+        const futures = [];
+        let resolving = [];
+        let activeTaskCount = 0;
+        let index = 0;
+        function onNext () {
+            activeTaskCount--;
+            while (futures.length) {
+                const createTask = futures.shift();
+                const task = createTask();
+                if (task&& task.then) {
+                    activeTaskCount++;
+                    return task.then(onNext);
+                }
+                activeTaskCount--;
+            }
+        }
         return {
             resolve: async function resolveParallel () {
-                const copy = futures.slice();
-                futures = [];
-                await Promise.all(copy);
+                const activeTasks = resolving;
+                resolving = [];
+                await Promise.all(activeTasks);
                 await resolve();
             },
             next: function invokeParallel (val, keep, order) {
+                let local = ++index;
                 if (active.call()) {
-                    futures.push(next(val, keep, order));
+                    if (limit && limit<activeTaskCount) {
+                        console.log('push ' + (local));
+                        futures.push(() => {
+                            const output = next(val, keep, order);
+                            if (output && output.then) {
+                                console.log('next ' + local);
+                                activeTaskCount++;
+                                return output.then(onNext);
+                            }
+                        });
+                    } else {
+                        const result = next(val, keep, order);
+                        if (result && result.then) {
+                            activeTaskCount++;
+                            resolving.push(result.then(onNext));
+                        }
+                    }
                     return true;
                 }
             },
@@ -466,6 +529,7 @@ function takeUntil (predicate) {
             },
             active: active.concat(() => take),
             next: function invokeTakeUntil (val, keep, order) {
+                console.log({ res: active.call() && take && (take = !predicate(val, keep)), });
                 if (active.call() && take && (take = !predicate(val, keep))) {
                     return next(val, keep, order);
                 }
@@ -734,4 +798,5 @@ module.exports = {
     max,
     default: default$,
     await: await$,
+    from,
 };

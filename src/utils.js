@@ -101,6 +101,27 @@ function createComparator (obj) {
     };
 }
 
+function createEmitter (producer, next, val, keep = {}, order = [ 0, ]) {
+    let resolved = false;
+    return new Promise(resolve => {
+        const callback = producer.then || producer;
+        callback((val) => {
+            if (!resolved) {
+                const res = next(val, keep, order);
+                if (!res && !resolved) {
+                    resolved = true; resolve(false);
+                } else if (res.then) {
+                    res.then(res => {
+                        if (!res && !resolved) {
+                            resolved = true; resolve(false);
+                        }
+                    });
+                }
+            }
+        }, val, keep);
+    });
+}
+
 module.exports = {
     NOT_SET,
     defaultFilter,
@@ -114,6 +135,7 @@ module.exports = {
     createComparator,
     comparatorError,
     createGrouper,
+    createEmitter,
     ASC,
     DESC,
 };
