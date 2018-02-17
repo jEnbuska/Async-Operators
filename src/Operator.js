@@ -14,8 +14,8 @@ class Operator {
         let output = undefined;
         let pushResolver  = {
             active: new And(),
-            resolve: function resolveInvoke () {},
-            next: function invoke (val) {
+            resolve () {},
+            next (val) {
                 output = val;
             },
         };
@@ -24,7 +24,10 @@ class Operator {
       .reverse()
       .reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), pushResolver);
         for (let i = 0; i<sources.length && active.call(); i++) {
-            await next(sources[i], {}, [ i, ]);
+            const output = next(sources[i], {}, [ i, ]);
+            if (output && output instanceof Promise) {
+                await output;
+            }
         }
         await resolve();
         return output;
@@ -50,10 +53,6 @@ class Operator {
             }
         }
         return this.resolve(...sources);
-    }
-
-    _create (operation) {
-        return new Operator([ ...this.middlewares, operation, ]);
     }
 
     first () {
@@ -166,8 +165,8 @@ class Operator {
         return this._create(middlewareCreators.ordered());
     }
 
-    parallel () {
-        return this._create(middlewareCreators.parallel());
+    parallel (limit = 0) {
+        return this._create(middlewareCreators.parallel(limit));
     }
 
     skip (count) {
@@ -261,6 +260,10 @@ class Operator {
             predicate = createPropertyFilter(predicate);
         }
         return this._create(middlewareCreators.skipWhile(predicate));
+    }
+
+    _create (operation) {
+        return new Operator([ ...this.middlewares, operation, ]);
     }
 }
 module.exports = Operator;
