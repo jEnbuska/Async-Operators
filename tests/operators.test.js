@@ -1,4 +1,4 @@
-const { ordered, parallel, } = require('../');
+const { ordered, parallel, from, } = require('../');
 const { sleep, } = require('./common');
 
 describe('operators', async () => {
@@ -182,6 +182,104 @@ describe('operators', async () => {
         ];
     });
 
+    test('from extended', async() => {
+        const producer = (arr) => sleep(20, arr.reduce((sum, it) => sum+it, 0));
+        const result = await ordered()
+            .toArray()
+            .from((next, val) => next(producer(val)))
+            .resolve(3, 1, 2);
+        expect(result).toEqual(6);
+    });
+
+    test('from as producer', async() => {
+        const producer = async (next) => {
+            await sleep(20);
+            next(20);
+            await sleep(30);
+            next(30);
+            next(-1);
+        };
+        const result = await from(producer)
+            .takeUntil(it => it ===-1)
+            .toArray()
+            .resolve();
+        expect(result).toEqual([ 20, 30, ]);
+    });
+
+    test('from re-extended', async() => {
+        const producer = async (next, val) => {
+            await sleep(20);
+            next(val);
+            await sleep(30);
+            next(30);
+            next(-1);
+        };
+        const result = await from((next) => producer(next, 'xxx'))
+            .takeUntil(it => it ===-1)
+            .toArray()
+            .peek(it => expect(it).toEqual([ 'xxx', 30, ]))
+            .from((next, val) => producer(next, val))
+            .takeUntil(it => it === -1)
+            .peek(it => console.log(it))
+            .toArray()
+            .resolve();
+        expect(result).toEqual([ [ 'xxx', 30, ], 30, ]);
+    });
+
+    test('from misc', async() => {
+        let count = 0;
+        const producer = async (next) => {
+            await sleep(20);
+            next(count++);
+            await sleep(30);
+            next(count++);
+            await sleep(30);
+        };
+        const result = await from(async function callback (next) {
+            await producer(next);
+            await producer(next);
+            next(-1);
+        })
+            .takeUntil(it => it ===-1)
+            .toArray()
+            .peek(it => expect(it).toEqual([ 0, 1, 2, 3, ]))
+            .toArray()
+            .resolve();
+        expect(result).toEqual([ [ 0, 1, 2, 3, ], ]);
+    });
+
+    test.only('from misc 2', async() => {
+        const producer = async () => {
+            await sleep(20);
+            await sleep(30);
+        };
+        const results = [];
+        await from((onNext) => producer(onNext).then(() => onNext(40)))
+            .map(async (val) =>  [ val, 0, await sleep(20, 20), ])
+            .await()
+            .from(async (onNext, val) => {
+                const res = await sleep(10, 10);
+                await Promise.all([ ...val, res, ].map(it => sleep(it, it).then(onNext)));
+                onNext('DONE');
+            })
+            .takeWhile(it =>  it !=='DONE')
+            .peek(it => results.push(it))
+            .consume();
+        expect(results).toEqual([ 0, 10, 20, 40, ]);
+    });
+
+    test('resolve without params', async () => {
+        await parallel(5)
+            .map(it => it)
+            .resolve();
+    });
+
+    test.only('resolve without params', async () => {
+        await parallel(5)
+            .map(it => it)
+            .resolve();
+    });
+
     test('take', async() => {
         const result = await ordered()
       .take(2)
@@ -235,6 +333,21 @@ describe('operators', async () => {
       .toArray()
       .resolve(sleep(10, 10), sleep(5, 5));
         expect(results).toEqual([ 5, 10, ]);
+    });
+
+    test('parallel with limit', async() => {
+        const results = await parallel(3)
+            .map(it => it())
+            .await()
+            .toArray()
+            .resolve(
+                () => sleep(0, 0), () => sleep(100, 100), () => sleep(25, 25),
+                () => sleep(75, 75), () => sleep(25, 25), () => sleep(150, 150));
+        /* (10 -> 55) => [0]=10 (at 10ms) => [5] = 55 (at 65ms)
+              (30 -> 15) => [1]=30 (at 30ms) => [2]=15 (at 45ms)
+              (50 -> 0) => [3]=50 (at 50ms) => [4] = 0; (at 50ms)
+        * */
+        expect(results).toEqual([ 0, 25, 25, 75, 100, 150, ]);
     });
     test('default', async() => {
         const results = await parallel()
