@@ -6,10 +6,10 @@ describe('operator generator', () => {
     test('generator as middleware', async() => {
         const result = await parallel()
             .toArray()
-            .generator(async (onNext, onComplete, finished, value) => {
+            .generator(async (push, quit, up, value) => {
                 const out = value.reduce((sum, it) => sum+it, 0);
-                onNext(await sleepAndReturn(20, out));
-                onComplete();
+                push(await sleepAndReturn(20, out));
+                quit();
             })
             .resolve(3, 1, 2);
         expect(result).toEqual(6);
@@ -17,10 +17,10 @@ describe('operator generator', () => {
 
     test('simple resolve from generator', async() => {
         const result = await generator(
-            async (onNext, onComplete) => {
-                onNext(await sleepAndReturn(20, 20));
-                onNext(await sleepAndReturn(30, 30));
-                onComplete();
+            async (push, quit) => {
+                push(await sleepAndReturn(20, 20));
+                push(await sleepAndReturn(30, 30));
+                quit();
             })
             .toArray()
             .resolve();
@@ -28,16 +28,16 @@ describe('operator generator', () => {
     });
 
     test('generator misc', async() => {
-        const result = await generator(async (onNext, onComplete) => {
-            onNext(await sleepAndReturn(20, 20));
-            onNext(await sleepAndReturn(30, 30));
-            onComplete();
+        const result = await generator(async (push, quit) => {
+            push(await sleepAndReturn(20, 20));
+            push(await sleepAndReturn(30, 30));
+            quit();
         })
             .await()
             .toArray()
             .peek(it => expect(it).toEqual([ 20, 30, ]))
-            .generator((onNext, onComplete, finished, value) => {
-                Promise.all([ sleepAndReturn(10, [ ...value, 10, ]).then(onNext), sleepAndReturn(20, [ 20, ...value, ]).then(onNext), ]).then(onComplete);
+            .generator((push, quit, finished, value) => {
+                Promise.all([ sleepAndReturn(10, [ ...value, 10, ]).then(push), sleepAndReturn(20, [ 20, ...value, ]).then(push), ]).then(quit);
             })
             .toArray()
             .resolve();
@@ -47,12 +47,12 @@ describe('operator generator', () => {
     test('generator before takeUntil', async() => {
         const tries = [];
         const passes = [];
-        await generator(async (onNext, onComplete) => {
-            await sleepAndReturn(20, 20).then(onNext);
-            await sleepAndReturn(10, 10).then(onNext);
-            await sleepAndReturn(0, 0).then(onNext);
-            const promises = [ 30, 40, ].map(int => sleepAndReturn(int, int).then(onNext));
-            await Promise.all(promises).then(onComplete);
+        await generator(async (push, quit) => {
+            await sleepAndReturn(20, 20).then(push);
+            await sleepAndReturn(10, 10).then(push);
+            await sleepAndReturn(0, 0).then(push);
+            const promises = [ 30, 40, ].map(int => sleepAndReturn(int, int).then(push));
+            await Promise.all(promises).then(quit);
         })
             .peek(it => tries.push(it))
             .takeWhile(it => it !== 0)
@@ -64,11 +64,11 @@ describe('operator generator', () => {
 
     test('use same generator producer multiple times', async() => {
         const result = await parallel()
-            .generator(async (onNext, onComplete, finished, value) => {
+            .generator(async (push, quit, finished, value) => {
                 for (let i = 0; i<value; i++) {
-                    onNext(i);
+                    push(i);
                 }
-                onComplete();
+                quit();
             })
             .toArray()
             .resolve(1, 2, 3, 4);
@@ -82,9 +82,9 @@ describe('operator generator', () => {
 
     test('generator as producer and flattener', async() => {
         const results = [];
-        await generator(async (onNext, onComplete) => {
-            await onNext(await sleepAndReturn(1, 1));
-            onComplete();
+        await generator(async (push, quit) => {
+            await push(await sleepAndReturn(1, 1));
+            quit();
         })
             .map(async (one) =>  [ one, 0, await sleepAndReturn(20, 20), ])
             .await()
@@ -106,11 +106,11 @@ describe('operator generator', () => {
         const tries = [];
         const passes = [];
         await parallel()
-            .generator(async (onNext, onComplete, finished, value) => {
-                for (let i = 0; i<value.length && !finished(); i++) {
-                    onNext(await sleepAndReturn(value, value[i]));
+            .generator(async (push, quit, up, value) => {
+                for (let i = 0; i<value.length && up(); i++) {
+                    push(await sleepAndReturn(value, value[i]));
                 }
-                onComplete();
+                quit();
             })
             .peek(int => tries.push(int))
             .takeWhile(it => it !== 0)

@@ -19,16 +19,16 @@ function generator (producer, isSource) {
         let resolveCallback;
         let nextCallback;
         let round = 0;
-        let finished = () => round !==0 || !upStream.call();
+        let up = () => round === 0 && upStream.call();
         if (isSource) {
             nextCallback = next;
             resolveCallback = function resolveGenerator () {
-                return createEmitter(producer, next, finished, ).then(resolve);
+                return createEmitter(producer, next, up, ).then(resolve);
             };
         } else {
             nextCallback = function invokeGenerator (val, keep, order) {
                 if (upStream.call()) {
-                    toBeResolved.push(createEmitter(producer, next, finished, val, keep, order));
+                    toBeResolved.push(createEmitter(producer, next, up, val, keep, order));
                 }
             };
             resolveCallback = function resolveGenerator () {
@@ -37,7 +37,7 @@ function generator (producer, isSource) {
                 }
                 return Promise.all(toBeResolved).then(() => {
                     const current = round++;
-                    finished = () => current !== round && !upStream.call();
+                    up = () => current === round && upStream.call();
                     return resolve();
                 });
             };

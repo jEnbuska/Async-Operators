@@ -165,21 +165,21 @@ function createObjectComparator (obj) {
     };
 }
 
-async function createEmitter (producer, invokeNextMiddleware, finished, val, keep = {}, order = [ 0, ]) {
+async function createEmitter (producer, invokeNextMiddleware, up, val, keep = {}, order = [ 0, ]) {
     producer = producer.then || producer;
     return new Promise(resolve => {
         let resolved = false;
-        function complete () {
+        function quit () {
             if (!resolved) {
                 resolved = true;
                 resolve();
             }
         }
         let i = 0;
-        producer((val) => {
+        producer(function push (val) {
             if (resolved) return;
             invokeNextMiddleware(val, keep, [ ...order, i++, ]);
-        }, complete, finished, val, keep);
+        }, quit, up, val, keep);
     });
 }
 

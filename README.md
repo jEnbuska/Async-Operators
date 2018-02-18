@@ -27,14 +27,17 @@ const stores = await parallel()
 ```
 #####generator example
 
-Generator is kind of advanced flattener that is able to run async operations and observe if upstream does not accept any more results by calling finished() 
+Generator is a **advanced** flattener, that gives you more manual control of flow handling
 ```
-async function fetchStore(onNext, onComplete, finished, value){
+async function fetchStore(push, quit, up, value){
+       // "push" value to next middleware
+       // "quit" must be called after generator is ready
+       // "up" return false if some middleware upstream is done and does not handle any more data
       const stores = await fetch(`${API_URL}/stores`);
-      for(leti = 0; i<store.length && !finished(); i++){
-          stores.forEach(onNext); // calls the next middleware (.map)
+      for(leti = 0; i<stores.length && up(); i++){
+          push(stores[i]);
       }
-      onComplete(); // must be invoked, or the generator will never resolve
+      quit(); // must be invoked, or the generator will never resolve
 }
 const storesWithLocations = await generator(fetchStores)
     .map(async store => ({store, location: await fetch(`${LOCATION_API}/${store.id}`)}))
