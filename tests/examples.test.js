@@ -1,10 +1,10 @@
 const { parallel, } = require('../');
-const { sleep, } = require('./common');
+const { sleepAndReturn, } = require('./common');
 
 describe('examples', async () => {
     test('parallel map, distinct and filter', async () => {
         const pipe = parallel()
-            .map(val => sleep(val*30, val))
+            .map(val => sleepAndReturn(val*30, val))
             .await()
             .distinct()
             .map(it => it*2)
@@ -37,12 +37,12 @@ describe('examples', async () => {
         const result = await parallel()
             .await() // [ 7 ,1 ], [ 1, 2 ]
             .flatten() // 7, 1, 1, 2
-            .map(val => sleep(val*10, [ val, val*2, ]))
+            .map(val => sleepAndReturn(val*10, [ val, val*2, ]))
             .parallel()
             .await() // [ 1, 2 ], [ 1, 2 ] [ 2, 4 ] [ 6, 18 ]
             .flatten()// 1, 2, 1, 2, 2, 4, 6, 18
             .toArray()
-            .resolve(sleep(100, [ 1, 2, ]), sleep(50, [ 8, 1, ]));
+            .resolve(sleepAndReturn(100, [ 1, 2, ]), sleepAndReturn(50, [ 8, 1, ]));
         expect(result).toEqual([ 1, 2, 1, 2, 2, 4, 8, 16, ]);
     });
 

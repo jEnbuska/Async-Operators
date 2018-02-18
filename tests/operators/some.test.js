@@ -1,5 +1,5 @@
 import { parallel, } from '../../';
-import { sleep, } from '../common';
+import { sleepAndReturn, } from '../common';
 
 describe('operator some', () => {
 
@@ -14,7 +14,7 @@ describe('operator some', () => {
         const result = await parallel()
             .await()
             .some(it => it<5)
-            .resolve(sleep(10, 6), sleep(15, 10));
+            .resolve(sleepAndReturn(10, 6), sleepAndReturn(15, 10));
         expect(result).toBe(false);
     });
 
@@ -30,7 +30,7 @@ describe('operator some', () => {
             .parallel()
             .await()
             .some(it => it<5)
-            .resolve(sleep(10, 6), sleep(15, 10), sleep(13, 4), sleep(11, 3));
+            .resolve(sleepAndReturn(10, 6), sleepAndReturn(15, 10), sleepAndReturn(13, 4), sleepAndReturn(11, 3));
         expect(result).toBe(true);
     });
 

@@ -1,5 +1,5 @@
 import { parallel, } from '../../';
-import { sleep, } from '../common';
+import { sleepAndReturn, } from '../common';
 
 describe('operator take', () => {
 
@@ -16,7 +16,7 @@ describe('operator take', () => {
             .await()
             .take(2)
             .toArray()
-            .resolve(sleep(30, 30), sleep(10, 10), sleep(20, 20));
+            .resolve(sleepAndReturn(30, 30), sleepAndReturn(10, 10), sleepAndReturn(20, 20));
         expect(result).toEqual([ 10, 20, ]);
     });
 

@@ -1,5 +1,5 @@
 import { parallel, } from '../../';
-import { sleep, } from '../common';
+import { sleepAndReturn, } from '../common';
 
 describe('operator scan', () => {
 
@@ -8,7 +8,7 @@ describe('operator scan', () => {
             .await()
             .scan((acc, next) => Object.assign(acc, { [next]: true, }), {}) // Wrong way of doing things
             .toArray()
-            .resolve(sleep(30, 30), sleep(20, 20));
+            .resolve(sleepAndReturn(30, 30), sleepAndReturn(20, 20));
         expect(result).toEqual([ { 30: true, 20: true, }, { 30: true, 20: true, }, ]);
     });
 
@@ -18,7 +18,7 @@ describe('operator scan', () => {
             .ordered()
             .scan((acc, next) => ({ ...acc, [next]: true, }), {})
             .toArray()
-            .resolve(sleep(30, 30), sleep(20, 20));
+            .resolve(sleepAndReturn(30, 30), sleepAndReturn(20, 20));
         expect(result2).toEqual([ { 30: true, }, { 30: true, 20: true, }, ]);
     });
 
@@ -27,7 +27,7 @@ describe('operator scan', () => {
             .await()
             .scan((acc, next) => ({ ...acc, [next]: true, }), {})
             .toArray()
-            .resolve(sleep(30, 30), sleep(20, 20));
+            .resolve(sleepAndReturn(30, 30), sleepAndReturn(20, 20));
         expect(result).toEqual([ { 20: true, }, { 30: true, 20: true, }, ]);
     });
 
@@ -38,12 +38,12 @@ describe('operator scan', () => {
             .take(5)
             .toArray()
             .resolve(
-                sleep(30, 1), // 4
-                sleep(30, 2), // 5
-                sleep(20, 3), // 2
-                sleep(15, 4), // 1
-                sleep(30, 5), // 6
-                sleep(20, 6), // 3
+                sleepAndReturn(30, 1), // 4
+                sleepAndReturn(30, 2), // 5
+                sleepAndReturn(20, 3), // 2
+                sleepAndReturn(15, 4), // 1
+                sleepAndReturn(30, 5), // 6
+                sleepAndReturn(20, 6), // 3
             );
         expect(result2).toEqual([
             { 4: true, },

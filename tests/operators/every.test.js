@@ -1,5 +1,5 @@
 import { parallel, } from '../../';
-import { sleep, } from '../common';
+import { sleepAndReturn, } from '../common';
 
 describe('operator flatten', () => {
 
@@ -7,7 +7,7 @@ describe('operator flatten', () => {
         const result = await parallel()
             .await()
             .every(it => it>5)
-            .resolve(sleep(10, 6), sleep(15, 10));
+            .resolve(sleepAndReturn(10, 6), sleepAndReturn(15, 10));
         expect(result).toBe(true);
     });
 

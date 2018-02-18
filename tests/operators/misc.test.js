@@ -1,5 +1,5 @@
 import { parallel, } from '../../';
-import { sleep, } from '../common';
+import { sleepAndReturn, } from '../common';
 
 describe('misc tests', () => {
 
@@ -63,7 +63,7 @@ describe('misc tests', () => {
             .await()
             .filter(it => it>20)
             .default('nothing')
-            .resolve(sleep(10, 10), sleep(5, 5));
+            .resolve(sleepAndReturn(10, 10), sleepAndReturn(5, 5));
         expect(results).toBe('nothing');
     });
 
@@ -128,7 +128,7 @@ describe('misc tests', () => {
             .parallel()
             .await()
             .reduce((acc, n) => ({ ...acc, [n]: n, }), {})
-            .resolve(sleep(30, 30), sleep(20, 20));
+            .resolve(sleepAndReturn(30, 30), sleepAndReturn(20, 20));
         expect(result).toEqual({ 20: 20, 30: 30, });
     });
 

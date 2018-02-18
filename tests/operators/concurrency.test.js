@@ -1,5 +1,5 @@
 import { parallel, } from '../../';
-import { sleep, } from '../common';
+import { sleepAndReturn, } from '../common';
 
 describe('concurrency operators ', () => {
 
@@ -8,7 +8,7 @@ describe('concurrency operators ', () => {
             .await()
             .ordered()
             .toArray()
-            .resolve(sleep(10, 10), sleep(5, 5));
+            .resolve(sleepAndReturn(10, 10), sleepAndReturn(5, 5));
         expect(results).toEqual([ 10, 5, ]);
     });
 
@@ -16,7 +16,7 @@ describe('concurrency operators ', () => {
         const results = await parallel()
             .await()
             .toArray()
-            .resolve(sleep(10, 10), sleep(5, 5));
+            .resolve(sleepAndReturn(10, 10), sleepAndReturn(5, 5));
         expect(results).toEqual([ 5, 10, ]);
     });
 
@@ -26,8 +26,8 @@ describe('concurrency operators ', () => {
             .await()
             .toArray()
             .resolve(
-                () => sleep(0, 0), () => sleep(100, 100), () => sleep(25, 25),
-                () => sleep(75, 75), () => sleep(25, 25), () => sleep(150, 150));
+                () => sleepAndReturn(0, 0), () => sleepAndReturn(100, 100), () => sleepAndReturn(25, 25),
+                () => sleepAndReturn(75, 75), () => sleepAndReturn(25, 25), () => sleepAndReturn(150, 150));
         /* (10 -> 55) => [0]=10 (at 10ms) => [5] = 55 (at 65ms)
               (30 -> 15) => [1]=30 (at 30ms) => [2]=15 (at 45ms)
               (50 -> 0) => [3]=50 (at 50ms) => [4] = 0; (at 50ms)
@@ -40,7 +40,7 @@ describe('concurrency operators ', () => {
             .await()
             .ordered()
             .toArray()
-            .resolve(sleep(10, 10), sleep(5, 5));
+            .resolve(sleepAndReturn(10, 10), sleepAndReturn(5, 5));
         expect(results).toEqual([ 10, 5, ]);
     });
 });

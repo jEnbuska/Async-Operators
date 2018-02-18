@@ -1,5 +1,5 @@
 import { generator, } from '../../';
-import { sleep, } from '../common';
+import { sleepAndReturn, } from '../common';
 
 describe('operator forEach', () => {
     test('forEach sync', async () => {
@@ -16,7 +16,7 @@ describe('operator forEach', () => {
         const values = [];
         await generator(async (next, done) => {
             for (let i = 0; i<5; i++) {
-                next(await sleep(i, i));
+                next(await sleepAndReturn(i, i));
             }
             done();
         }).forEach(it => values.push(it));

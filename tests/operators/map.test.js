@@ -1,5 +1,5 @@
 import { parallel, generator, } from '../../';
-import { sleep, } from '../common';
+import { sleepAndReturn, } from '../common';
 
 describe('operator map', () => {
     test('map sync with callback', async () => {
@@ -19,8 +19,8 @@ describe('operator map', () => {
 
     test('map with generator', async () => {
         const result = await generator(async (next, done) => {
-            next(await sleep(5, 5));
-            Promise.all([ sleep(10, 10).then(next), sleep(20, 20).then(next), ]).then(done);
+            next(await sleepAndReturn(5, 5));
+            Promise.all([ sleepAndReturn(10, 10).then(next), sleepAndReturn(20, 20).then(next), ]).then(done);
         }).map(it => it*2)
             .toArray()
             .resolve();
