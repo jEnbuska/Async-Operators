@@ -13,9 +13,72 @@ function createPropertyFilter (prop) {
     };
 }
 
-function createPropertySelector (key) {
+const { isInteger, } = Number;
+function createIntegerRange (from, to) {
+    if (isInteger(from) && isInteger(to)) {
+        const integers = [];
+        if (from<to) {
+            for (let i = from; i<to; i++) {
+                integers.push(i);
+            }
+        } else {
+            for (let i = from; i>to; i--) {
+                integers.push(i);
+            }
+        }
+        return integers;
+    }
+    console.error({ from, to, });
+    throw new Error('"createIntegerRange" got unexpected input as parameters. Expected (from: int, to: int)');
+}
+
+function createKeySelector (key) {
+    return function keySelector (val) {
+        if (val) {
+            return val[key];
+        }
+    };
+}
+
+function createPropertySelector (keys) {
     return function propertySelector (val) {
-        return val[key];
+        if (val) {
+            keys.reduce((acc, k) => {
+                acc[k] = val[k];
+                return acc;
+            }, {});
+        }
+    };
+}
+
+function createDistinctHistoryComparator (keys) {
+    if (!keys.length) {
+        console.error(keys);
+        throw new Error('Invalid parameter passed to historyComparator');
+    }
+    const tail = keys.pop();
+    return function distinctHistoryComparator (val, history) {
+        let isDistinct = false;
+        val = val || {};
+        for (let i = 0; i<keys.length; i++) {
+            const value = val[keys[i]];
+            if (value in history) {
+                history = history[value];
+            } else {
+                history = history[value] = {};
+                if (!isDistinct) {
+                    isDistinct = true;
+                }
+            }
+        }
+        const value = val[tail];
+        if (!(value in history)) {
+            history[value] = true;
+            if (!isDistinct) {
+                isDistinct = true;
+            }
+        }
+        return isDistinct;
     };
 }
 
@@ -60,6 +123,7 @@ function defaultComparator (a, b) {
 function createGrouper (keys) {
     const tail = keys.pop();
     return function nestedGrouper (acc, val) {
+        val = val || {};
         for (const k of keys) {
             const subVal = val[k];
             if (!acc[subVal]) {
@@ -76,7 +140,7 @@ function createGrouper (keys) {
 
 const ASC = 'ASC';
 const DESC = 'DESC';
-function createComparator (obj) {
+function createObjectComparator (obj) {
     const comparators = Object.entries(obj).map(([ property, direction, ]) => {
         if (direction !== DESC && direction !== ASC) {
             throw comparatorError;
@@ -101,41 +165,73 @@ function createComparator (obj) {
     };
 }
 
-function createEmitter (producer, next, val, keep = {}, order = [ 0, ]) {
-    let resolved = false;
+async function createEmitter (producer, done, next, active, val, keep = {}, order = [ 0, ]) {
+    producer = producer.then || producer;
     return new Promise(resolve => {
-        const callback = producer.then || producer;
-        callback((val) => {
-            if (!resolved) {
-                const res = next(val, keep, order);
-                if (!res && !resolved) {
-                    resolved = true; resolve(false);
-                } else if (res.then) {
-                    res.then(res => {
-                        if (!res && !resolved) {
-                            resolved = true; resolve(false);
-                        }
-                    });
-                }
-            }
-        }, val, keep);
+        let resolved = false;
+        function onDone () {
+            resolved = true;
+            resolve();
+        }
+        let i = 0;
+        producer((val) => {
+            if (resolved) return;
+            else if (!active.call()) onDone();
+            else if (!done()) next(val, keep, [ ...order, i++, ]);
+        }, onDone, val, keep);
     });
+}
+
+function handleResolve (result, resolve) {
+    if (result && result.then) {
+        return result.then(resolve);
+    }
+    return resolve();
+}
+
+function resolveOrdered (runnables, resolve) {
+    let index = 0;
+    function orderedResolver () {
+        if (index<runnables.length) {
+            const val = runnables[index++]();
+            return handleResolve(val, orderedResolver);
+        } else {
+            return resolve();
+        }
+    }
+    return orderedResolver();
+}
+
+function isPromise (val) {
+    return val && val.then;
+}
+
+function storeIfPromise (val, store) {
+    if (isPromise(val)) {
+        store.push(val);
+    }
 }
 
 module.exports = {
     NOT_SET,
+    handleResolve,
     defaultFilter,
     createPropertyFilter,
-    createPropertySelector,
+    createDistinctHistoryComparator,
     identity,
     createSet,
     entriesToObject,
     orderComparator,
     defaultComparator,
-    createComparator,
+    createObjectComparator,
+    resolveOrdered,
     comparatorError,
     createGrouper,
     createEmitter,
+    storeIfPromise,
+    createKeySelector,
+    createPropertySelector,
+    createIntegerRange,
     ASC,
     DESC,
 };

@@ -1,20 +1,23 @@
 const Operator = require('./src/Operator');
 const { ASC, DESC, }= require('./src/utils');
 
-function ordered () {
-    return new Operator();
-}
 function parallel (limit) {
     return new Operator().parallel(limit);
 }
-function from (producer) {
-    return new Operator().from(producer, true);
+function generator (producer) {
+    return new Operator().generator(producer, true);
 }
 
 module.exports = {
-    ordered,
     parallel,
-    from,
+    generator,
+    ordered: () => {
+        throw new Error('"ordered" async_operator initializer is no longer supported. Do parallel().ordered().. to achieve the same result');
+    },
+    from: (param) => {
+        console.warn('"from" async operator is deprecated, use "generator" instead');
+        return generator(param);
+    },
     ASC,
     DESC,
 };

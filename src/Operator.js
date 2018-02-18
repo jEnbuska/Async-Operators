@@ -1,6 +1,6 @@
 const middlewareCreators = require('./middlewareCreators');
 const And = require('./CompositeAnd');
-const { createPropertyFilter, createPropertySelector, defaultFilter, identity, defaultComparator, createComparator, comparatorError, createGrouper, } = require('./utils');
+const { createPropertyFilter, createKeySelector, createDistinctHistoryComparator, createPropertySelector, defaultFilter, identity, defaultComparator, createObjectComparator, comparatorError, createGrouper, createIntegerRange, } = require('./utils');
 /* eslint-disable consistent-return */
 
 class Operator {
@@ -9,29 +9,22 @@ class Operator {
         this.middlewares = middlewares;
     }
 
-    async resolve (...sources) {
+    resolve (...sources) {
         const { middlewares, } = this;
         let output = undefined;
         let pushResolver  = {
-            active: new And(),
-            resolve () {},
+            upStream: new And(),
+            async resolve () {},
             next (val) {
                 output = val;
-                return true;
             },
         };
-        const { active, next, resolve, } = middlewares
+        const { upStream, next, resolve, } = middlewares
       .slice()
       .reverse()
       .reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), pushResolver);
-        for (let i = 0; i<sources.length && active.call(); i++) {
-            const output = next(sources[i], {}, [ i, ]);
-            if (output && output instanceof Promise) {
-                await output;
-            }
-        }
-        await resolve();
-        return output;
+        for (let i = 0; i<sources.length && upStream.call(); i++) next(sources[i], {}, [ i, ]);
+        return resolve().then(() => output);
     }
 
     async consume (..._) {
@@ -39,25 +32,20 @@ class Operator {
             throw new Error('consume should be called without parameters.');
         }
         const { middlewares, } = this;
-        let output = undefined;
         let pushResolver  = {
-            active: new And(),
-            resolve () {},
-            next () {
-                return true;
-            },
+            upStream: new And(),
+            async resolve () {},
+            next () {},
         };
         const { resolve, } = middlewares
             .slice()
             .reverse()
             .reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), pushResolver);
-        console.log('created');
-        await resolve();
-        return output;
+        return resolve();
     }
 
-    from (producer, isSource) {
-        return this._create(middlewareCreators.from(producer, isSource));
+    generator (producer, isSource) {
+        return this._create(middlewareCreators.generator(producer, isSource));
     }
 
     min (comparator = defaultComparator) {
@@ -69,29 +57,16 @@ class Operator {
     }
 
     range (from, to) {
-        const sources = [];
-        if (from<to) {
-            for (let i = from; i<to; i++) {
-                sources.push(i);
-            }
-        } else {
-            for (let i = from; i>to; i--) {
-                sources.push(i);
-            }
-        }
-        return this.resolve(...sources);
+        const integerRange = createIntegerRange(from, to);
+        return this.resolve(...integerRange);
+    }
+
+    forEach (callback) {
+        return this._create(middlewareCreators.forEach(callback)).consume();
     }
 
     first () {
         return this._create(middlewareCreators.first());
-    }
-
-    keep (picker = identity) {
-        if (typeof picker === 'string') {
-            const str = picker;
-            picker = val => ({ [str]: val[str], });
-        }
-        return this._create(middlewareCreators.keep(picker));
     }
 
     keys () {
@@ -123,21 +98,21 @@ class Operator {
 
     toSet (picker = identity) {
         if (typeof picker === 'string') {
-            picker = createPropertySelector(picker);
+            picker = createKeySelector(picker);
         }
         return this._create(middlewareCreators.toSet(picker));
     }
 
     toObject (picker = identity) {
         if (typeof picker=== 'string') {
-            picker= createPropertySelector(picker);
+            picker = createKeySelector(picker);
         }
         return this._create(middlewareCreators.toObject(picker));
     }
 
     toMap (picker = identity) {
         if (typeof picker=== 'string') {
-            picker= createPropertySelector(picker);
+            picker = createKeySelector(picker);
         }
         return this._create(middlewareCreators.toMap(picker));
     }
@@ -146,19 +121,22 @@ class Operator {
         return this._create(middlewareCreators.reverse());
     }
 
-    sort (comparator = defaultComparator) {
-        const type = typeof comparator;
-        if (type === 'function') {
-            return this._create(middlewareCreators.sort(comparator));
+    sort (...params) {
+        const [ head, ] = params;
+        const type = typeof head;
+        if (type === 'undefined') {
+            return this._create(middlewareCreators.sort(defaultComparator));
+        } else if (type === 'function') {
+            return this._create(middlewareCreators.sort(head));
         } else if (type === 'object') { // shape ~ {[propA]: 'DESC', [propB]: 'ASC'}
-            return this._create(middlewareCreators.sort(createComparator(comparator)));
+            return this._create(middlewareCreators.sort(createObjectComparator(head)));
         } else {
             throw comparatorError;
         }
     }
 
-    await (mapper = identity) {
-        return this._create(middlewareCreators.await(mapper));
+    await () {
+        return this._create(middlewareCreators.await());
     }
 
     take (max) {
@@ -167,7 +145,7 @@ class Operator {
 
     sum (summer = identity) {
         if (typeof summer === 'string') {
-            summer = createPropertySelector(summer);
+            summer = createKeySelector(summer);
         }
         return this._create(middlewareCreators.sum(summer));
     }
@@ -212,11 +190,14 @@ class Operator {
         return this._create(middlewareCreators.distinct());
     }
 
-    distinctBy (picker) {
-        if (typeof picker === 'string') {
-            picker = createPropertySelector(picker);
+    distinctBy (...params) {
+        let historyComparator;
+        if (typeof params[0] === 'function') {
+            throw new Error('Distinct by expected to be passed one or more keys as argument');
+        } else {
+            historyComparator = createDistinctHistoryComparator(params);
         }
-        return this._create(middlewareCreators.distinctBy(picker));
+        return this._create(middlewareCreators.distinctBy(historyComparator));
     }
 
     flatten (iterator = Object.values) {
@@ -225,7 +206,7 @@ class Operator {
 
     map (picker) {
         if (typeof picker === 'string') {
-            picker = createPropertySelector(picker);
+            picker = createKeySelector(picker);
         }
         return this._create(middlewareCreators.map(picker));
     }
@@ -288,6 +269,14 @@ class Operator {
             predicate = createPropertyFilter(predicate);
         }
         return this._create(middlewareCreators.skipWhile(predicate));
+    }
+
+    keep (picker = identity) { // this was probably a bad idea
+        if (typeof picker === 'string') {
+            const str = picker;
+            picker = val => ({ [str]: val[str], });
+        }
+        return this._create(middlewareCreators.keep(picker));
     }
 
     _create (operation) {

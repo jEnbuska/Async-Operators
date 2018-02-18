@@ -1,50 +1,54 @@
 Performs asynchronous operations using
 familiar functions like 'map', 'filter', 'reduce' etc..
-######0 external dependencies
 
-####Required Node 7 >=
+
+######No external dependencies
+#### Required Node 7 >=
  
-<b>examples at the bottom of the page</b>
-###### more examples under tests/operators.test.js
-```npm install --save async_operators```
+```npm install async_operators```
 
+```yarn add async_operators```
 
-
-## Initializers:
+## Stream initializers:
 ```
-const { parallel, ordered, from } = require('lazy_operators');
-await parallel(?number).map(...).filter(...).resolve(...) ...
-await ordered().map(...).filter(...).resolve(...) ...
-
-async function fetchProductsOneByOne(onNext){
-      const productIds = await fetch('/content');
-      await Promise.all(productIds.map(id => fetch('/content/' + id).then(onNext));
-      onNext('DONE') 
+const { parallel, generator } = require('lazy_operators');
+await parallel(?number)... // parameter is limit of parallel executions. Defalts to unlimited
+await generator(callback)... // example below
+```
+#####generator example
+```
+async function fetchStore(next, done, input){
+      const stores = await fetch(`${API_URL}/stores`);
+      stores.forEach(next); // calls the next middleware (.map)
+      done(); // must be invoked, or the generator will never resolve
 }
+const storesWithLocations = await generator(fetchStores)
+    .map(async store => ({store, location: await fetch(`${LOCATION_API}/${store.id}`)}))
+    .await()
+    .filter(store => store.location)
+    .map(toCamelCase)
+    .resolve();
+```
+#####parallel example
+```
+const stores = await parallel()
+    .await()
+    .flatten()
+    .map(await store => ({store, location: await fetch(`${LOCATION_API}/${store.id}`)}))
+    .await()
+    .filter(store => store.location)
+    .resolve(fetchStores);
+```
+## Stream resolvers:
+Calling resolver return a promise that return the result of the stream.
+```
+.resolve(...listOfParams); -> any
+.range(from, to); -> any
+.consume(); -> undefined
+.forEach(callback) -> undefined
+```
 
-const products = await from(fetchProductsOneByOne)
-    .takeUntil(next => next === 'DONE')
-    .map(...)
-    .filter(...)
-    .consume();
-```
-###### parallel(); is simply a shorthand for ordered().parallel();
-###### from(...) expects a callback function expects to be invoked possible multiple times. Flow control filters are a must when using 'from'.
-
-## resolvers:
-```
-.resolve(...listOfParams);
-.range(from, to); //exlusive
-```
-* Note that invoking operator with single value does not necessarily need a reducing operator:
-```
-const agedJohn = await ordered()
-  .map(john => ({...john, age: john.age+1}))
-  .resolve({ name: 'John', age: 25 });
-console.log(agedJohn); // { name: 'John', age: 26, }
-```
-
-## reducing operators:
+## Reducing operators:
 ```
 .toArray()
 .reduce(callback, acc)
@@ -60,32 +64,49 @@ console.log(agedJohn); // { name: 'John', age: 26, }
 .min(comparator)
 .max(comparator)
 ```
-#####Note that reducing operators can be continued:
 
-```await ordered().sum().map(sum => sum*2).resolve(1,2,3); // --> 12 ```
-```groupBy can take multiple arguments. The more arguments are given, more structured the end result will be
-await ordered()
+* Note that invoking operator resulting in single value does not necessarily need a *reducing* operator:
+
+Example below:
+```
+const agedJohn = await parallel()
+  .map(john => ({...john, age: john.age+1}))
+  .resolve({ name: 'John', age: 25 });
+console.log(agedJohn); // { name: 'John', age: 26, }
+```
+
+#####Reducing operators can also be continued:
+```
+const twelve = await parallel().
+    .sum(). // reducing operator
+    .map(sum => sum*2)
+    .resolve(1,2,3);  // second reducing operator
+```
+##### Grouping example
+
+
+groupBy can take multiple arguments. The more arguments are given, the more structured the end result will be
+```
+const groupedPersons = await parallel()
   .groupBy('gender', 'age')
-  .resolve({gender: 0, age: 25, name: 'Tim'}) //--> { 0, { 25: [{gender: 0, age: 25, name: 'Tim' }] } }
+  .resolve(
+    {gender: 0, age: 25, name: 'Tim'},
+    {gender: 0: age: 20, name: 'John'}
+) //--> { 0, { 25: [{gender: 0, age: 25, name: 'Tim' }], 20: [{gender: 0, age: 20, name: 'John}]} } }
 ```
 
 ## filtering operators:
 ```
-.filter(string | callback)
+.filter(?string | ?callback); 
 .reject(string | callback)
 .where(object) 
 ```
 #####Explanations
 ```
-.filter(/*without parameters*/)
-  same as --> filter(val => !!val)
-.filter('name')
-  same as --> filter(val => !!val.name)
-  
+.filter(/*without parameters*/) // same as --> filter(val => !!val)
+.filter('name') // same as --> filter(val => !!val['name'])
 .reject(...)// is opposite of filter
-
-.where({name: 'John', age: 25}) 
-  same as --> filter(({age, name}) => age===25 && name: 'John')
+.where({name: 'John', age: 25})  // same as --> filter(({age, name}) => age===25 && name: 'John')
 ```
 ### mapping operators:
 ```
@@ -96,14 +117,14 @@ await ordered()
 ```
 #####Explanations
 ```
-.map(callback); //same as [...].map(callback)
-.map('name');// same as [...].map(it => it.name)
+.map(callback); //same array map
+.map('name');// same as array.map(it => it.name)
 
 .scan((acc, next) => ({...acc, [next.id]: next}),{/*seed*})
   //same as [...].reduce(..., {}), but it publishes all intermediate values
 
 .pick('name','age')
-  //same as --> .map(it => ({name: it.name, age: it.age}))
+  //same as --> .map(person => ({name: person.name, age: person.age}))
 
 .omit(...) // negate of pick
 ```
@@ -115,20 +136,19 @@ await ordered()
 .entries() //same as .flatten(Object.entries)
 .flatten(undefined | callback)
 ```
-#####Explanations
 default flattener for 'flatten' is Object.values
+
 ## flow control filters:
 ```
-.take(number)
-.takeWhile(string | callback)
-.takeUntil(string | callback)
-.skip(number)
-.skipWhile(string | callback)
-.distinct()
-.distinctBy(string | callback)
+.take(number) // takes the limit of executable tasks
+.takeWhile(string | callback) // takes tasks until first task return false 
+.takeUntil(string | callback) // negate of takeWhile
+.skip(number) // skips the first tasks
+.skipWhile(string | callback) // skips the tasks until first task return true
+.distinctBy(...string) //expect one or more keys to be passed as arguments like so distinctBy('a','b','c');
+.distinct() // compares the inputs by their natural value (next history) => history.every(prev => prev!==next)
 ```
-#####Explanations
-State of these flow control middlewares have their internal state. This internal state is not shared between different resolves
+### Flow control middlewares have their internal state. This internal state is not shared between different resolves
 ```
 const pipe = parallel().take(1);
 const [ a, b, ]= await Promise.all([ pipe.resolve(1), pipe.resolve(2), ]);
@@ -136,6 +156,7 @@ console.log({ a, b, }); // { a: 1, b: 2 }
 ```
 middlewares 'take(), takeWhile, takeUntil() & first()' 
 stops all other ongoing operations downstream when their goal is hit
+
 ## Ordering
 ```
 .parallel()
@@ -147,92 +168,35 @@ stops all other ongoing operations downstream when their goal is hit
 * middlewares 'ordered, reverse, and sort', are blocking the upstream execution until all downstream operations are finished
 * parallel execution stops being parallel on 'ordered,  reverse, sort' middlewares.
 * parallel execution is not recursively parallel by default:
-* sort without param or with callback sorts the values as expected
 * sort with object parameter expect an object with shape of: 
-   ```{propName1: 'DESC', propName2: 'ASC'}```
+   ```{keyName1: 'DESC', keyName: 'ASC'}```
 
 ```
 parallel() // --> parallel
  .await()
  .flatten()// --> not recursively parallel
  .map(async (val) => {/*map something async*/})
- .parallel() // --> parallel
+ .parallel() // --> parallel again
  .await()
  .resolve(/*some parallel tasks*/) 
 ```
-## other:
+## await:
 ```
-await(callback)
-default(any)
+await() // waits until promise is resolved
+
 ```
-#####Explanations
+## default:
 ```
-const result = await ordered()
+.default(any) // emits default value on resolve if no value passes through
+
+const result = await parallel()
   .filter(it => it!==1)
   .default('NOT_SET')
   .resolve(1)
-console.log(result); // 'NOT_SET'
-
-.await(?mapper)
-  // waits until promise is resolved
+console.log(result); // 'NOT_SET' 
 ```
 
 ## parallel tasks
 * Order of values is not ensured after await()
 * Use sort(comparator) or ordered() after await / await + parallel , if the order of results is relevant
 
-## examples
-```
-const { parallel, ordered } require('async_operators');
-
-//util function for examples
-function sleep(ms, result){
-  return new Promise(resolve => 
-    setTimeout(() => 
-      resolve(result), 
-      ms
-    ))
-}
-
-async function parallelMapDistinctFilter(){
-  const pipe = parallel()
-    .map(val => sleep(val, val))
-    .await()
-    .distinct()
-    .map(it => it*2)
-    .filter(it => it !== 8)
-    .toArray();
-
-  // The order might vary
-  const result = await pipe.resolve(5, 4, 3, 2, 1, 2, 3, 4, 5);
-  expect(result).toEqual([ 2, 4, 6, 10, ]);
-  const result2 = await pipe.resolve(4, 3, 2, 1);
-  expect(result2).toEqual([ 2, 4, 6, ]);
-}
-
-async function flattenWithLimit(){
-  const pipe = ordered()
-    .flatten() // optionally flattener can be passed as callback
-    .take(2); // stops all downstreams operations when limit is hit
-    .toArray()
-  const names = await pipe.resolve({ firstname: 'John', lastname: 'Doe', });
-
-  expect(names).toEqual([ 'John', 'Doe', ]);
-
-  const firstTwoNumbers = await pipe.resolve([ 1, ],  [ 2, 3, ], [ 4, 5, 6, ]);
-  expect(firstTwoNumbers).toEqual([ 1, 2, ]);       
-}
-
-async function parallelAwaitFlattenParallelAwaitFlatten(){
-   const result = await parallel()
-     .await() // [ 8 ,1 ], [ 1, 2 ]
-     .flatten() // 8, 1, 1, 2
-     .map(val => sleep(val*10, [ val, val*2, ]))
-     .parallel()
-     .await() // [ 1, 2 ], [ 1, 2 ] [ 2, 4 ] [ 8, 16 ]
-     .flatten()// 1, 2, 1, 2, 2, 4, 8, 16
-     .toArray()
-     .resolve(sleep(100, [ 1, 2, ]), sleep(50, [ 8, 1, ]));
-   expect(result).toEqual([ 1, 2, 1, 2, 2, 4, 8, 16, ]);
-}
-```

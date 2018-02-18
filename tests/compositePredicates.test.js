@@ -1,6 +1,6 @@
 const And = require('../src/CompositeAnd');
 
-describe.skip('CompositeAnd', () => {
+describe('CompositeAnd', () => {
     test('single and', function () {
         const pred = new And();
         expect(pred.call()).toBeTruthy();
