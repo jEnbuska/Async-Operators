@@ -15,21 +15,20 @@ function keep (callback) {
 
 function generator (producer, isSource) {
     return function createGenerator ({ next, upStream, resolve, }) {
-
         let toBeResolved = [];
         let resolveCallback;
         let nextCallback;
         let round = 0;
-        let isDone = () => round !==0;
+        let finished = () => round !==0 || !upStream.call();
         if (isSource) {
             nextCallback = next;
             resolveCallback = function resolveGenerator () {
-                return createEmitter(producer, isDone, next, upStream).then(resolve);
+                return createEmitter(producer, next, finished, ).then(resolve);
             };
         } else {
             nextCallback = function invokeGenerator (val, keep, order) {
                 if (upStream.call()) {
-                    toBeResolved.push(createEmitter(producer, isDone, next, upStream, val, keep, order));
+                    toBeResolved.push(createEmitter(producer, next, finished, val, keep, order));
                 }
             };
             resolveCallback = function resolveGenerator () {
@@ -38,7 +37,7 @@ function generator (producer, isSource) {
                 }
                 return Promise.all(toBeResolved).then(() => {
                     const current = round++;
-                    isDone = () => current !== round;
+                    finished = () => current !== round && !upStream.call();
                     return resolve();
                 });
             };

@@ -165,20 +165,21 @@ function createObjectComparator (obj) {
     };
 }
 
-async function createEmitter (producer, done, next, active, val, keep = {}, order = [ 0, ]) {
+async function createEmitter (producer, onNext, finished, val, keep = {}, order = [ 0, ]) {
     producer = producer.then || producer;
     return new Promise(resolve => {
         let resolved = false;
-        function onDone () {
-            resolved = true;
-            resolve();
+        function onComplete () {
+            if (!resolved) {
+                resolved = true;
+                resolve();
+            }
         }
         let i = 0;
         producer((val) => {
             if (resolved) return;
-            else if (!active.call()) onDone();
-            else if (!done()) next(val, keep, [ ...order, i++, ]);
-        }, onDone, val, keep);
+            onNext(val, keep, [ ...order, i++, ]);
+        }, onComplete, finished, val, keep);
     });
 }
 
@@ -202,19 +203,8 @@ function resolveOrdered (runnables, resolve) {
     return orderedResolver();
 }
 
-function isPromise (val) {
-    return val && val.then;
-}
-
-function storeIfPromise (val, store) {
-    if (isPromise(val)) {
-        store.push(val);
-    }
-}
-
 module.exports = {
     NOT_SET,
-    handleResolve,
     defaultFilter,
     createPropertyFilter,
     createDistinctHistoryComparator,
@@ -228,7 +218,6 @@ module.exports = {
     comparatorError,
     createGrouper,
     createEmitter,
-    storeIfPromise,
     createKeySelector,
     createPropertySelector,
     createIntegerRange,

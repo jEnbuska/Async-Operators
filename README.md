@@ -15,20 +15,6 @@ const { parallel, generator } = require('lazy_operators');
 await parallel(?number)... // parameter is limit of parallel executions. Defalts to unlimited
 await generator(callback)... // example below
 ```
-#####generator example
-```
-async function fetchStore(next, done, input){
-      const stores = await fetch(`${API_URL}/stores`);
-      stores.forEach(next); // calls the next middleware (.map)
-      done(); // must be invoked, or the generator will never resolve
-}
-const storesWithLocations = await generator(fetchStores)
-    .map(async store => ({store, location: await fetch(`${LOCATION_API}/${store.id}`)}))
-    .await()
-    .filter(store => store.location)
-    .map(toCamelCase)
-    .resolve();
-```
 #####parallel example
 ```
 const stores = await parallel()
@@ -38,6 +24,24 @@ const stores = await parallel()
     .await()
     .filter(store => store.location)
     .resolve(fetchStores);
+```
+#####generator example
+
+Generator is kind of advanced flattener that is able to run async operations and observe if upstream does not accept any more results by calling finished() 
+```
+async function fetchStore(onNext, onComplete, finished, value){
+      const stores = await fetch(`${API_URL}/stores`);
+      for(leti = 0; i<store.length && !finished(); i++){
+          stores.forEach(onNext); // calls the next middleware (.map)
+      }
+      onComplete(); // must be invoked, or the generator will never resolve
+}
+const storesWithLocations = await generator(fetchStores)
+    .map(async store => ({store, location: await fetch(`${LOCATION_API}/${store.id}`)}))
+    .await()
+    .filter(store => store.location)
+    .map(toCamelCase)
+    .resolve();
 ```
 ## Stream resolvers:
 Calling resolver return a promise that return the result of the stream.
