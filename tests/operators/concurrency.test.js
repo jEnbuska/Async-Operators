@@ -20,6 +20,17 @@ describe('concurrency operators ', () => {
         expect(results).toEqual([ 5, 10, ]);
     });
 
+    test('re-continued await', async() => {
+        const results = await parallel()
+            .await()
+            .map(it => sleepAndReturn(it, it))
+            .await()
+            .takeUntil(it => it === 10)
+            .toArray()
+            .resolve(sleepAndReturn(10, 10), sleepAndReturn(5, 5), sleepAndReturn(20, 20));
+        expect(results).toEqual([ 5, ]);
+    });
+
     test('parallel with max execution limit', async() => {
         const results = await parallel(3)
             .map(it => it())

@@ -3,9 +3,9 @@
   "description": "lazy async handling",
   "main": "index.js",
   "engines": {
-    "node": ">=7"
+    "node": ">=8"
   },
-  "version": "2.1.4",
+  "version": "3.0.0",
   "author": "jEnbuska <joonaenb@gmail.com>",
   "license": "MIT",
   "repository": {

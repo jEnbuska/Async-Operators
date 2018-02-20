@@ -3,7 +3,7 @@ familiar functions like 'map', 'filter', 'reduce' etc..
 
 
 ######No external dependencies
-#### Required Node 7 >=
+#### Required Node 8 >=
  
 ```npm install async_operators```
 
@@ -13,7 +13,7 @@ familiar functions like 'map', 'filter', 'reduce' etc..
 ```
 const { parallel, generator } = require('lazy_operators');
 await parallel(?number)... // parameter is limit of parallel executions. Defalts to unlimited
-await generator(callback)... // example below
+await generator(generatorCallback)... // example below
 ```
 #####parallel example
 ```
@@ -29,17 +29,12 @@ const stores = await parallel()
 
 Generator is a **advanced** flattener, that gives you more manual control of flow handling
 ```
-async function fetchStore(push, quit, active, value){
-       // "push" value to next middleware
-       // "quit" must be called after generator is ready
-       // "active" return false after some middleware downstream is finished. (for example "takeUntil" middleware)
-      const stores = await fetch(`${API_URL}/stores`);
-      for(leti = 0; i<stores.length && active(); i++){
-          push(stores[i]);
-      }
-      quit(); // must be invoked, or the generator will never resolve
-}
-const storesWithLocations = await generator(fetchStores)
+const storesWithLocations = await generator(function * fetchStore(){
+          const stores = await fetch(`${API_URL}/stores`);
+          for(leti = 0; i<stores.length && active(); i++){
+              yield stores[i];
+          }
+    })
     .map(async store => ({store, location: await fetch(`${LOCATION_API}/${store.id}`)}))
     .await()
     .filter(store => store.location)
@@ -150,8 +145,8 @@ default flattener for 'flatten' is Object.values
 .take(number) // takes the limit of executable tasks
 .takeWhile(string | callback) // takes tasks until first task return false 
 .takeUntil(string | callback) // negate of takeWhile
-.skip(number) // skips the first tasks
-.skipWhile(string | callback) // skips the tasks until first task return true
+(number) // skips the first tasks
+While(string | callback) // skips the tasks until first task return true
 .distinctBy(...string) //expect one or more keys to be passed as arguments like so distinctBy('a','b','c');
 .distinct() // compares the inputs by their natural value (next history) => history.every(prev => prev!==next)
 ```

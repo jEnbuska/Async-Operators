@@ -1,6 +1,6 @@
 import { parallel, } from '../../';
 
-describe.skip('operator peek', () => {
+describe('operator peek', () => {
 
     test('peek without params should console.log', async() => {
         const results = [];

@@ -1,5 +1,6 @@
 const middlewareCreators = require('./middlewareCreators');
 const And = require('./CompositeAnd');
+const createRace = require('./CompositeRace');
 const { createPropertyFilter, createKeySelector, createDistinctHistoryComparator, createPropertySelector, defaultFilter, identity, defaultComparator, createObjectComparator, comparatorError, createGrouper, createIntegerRange, } = require('./utils');
 /* eslint-disable consistent-return */
 
@@ -9,42 +10,52 @@ class Operator {
         this.middlewares = middlewares;
     }
 
-    resolve (...sources) {
-        const { middlewares, } = this;
+    async resolve (...sources) {
         let output = undefined;
         let pushResolver  = {
-            downStream: new And(),
+            ...await createRace(),
             async resolve () {},
             next (val) {
                 output = val;
             },
         };
-        const { downStream, next, resolve, } = middlewares
-      .slice()
-      .reverse()
-      .reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), pushResolver);
-        for (let i = 0; i<sources.length && downStream.call(); i++) next(sources[i], {}, [ i, ]);
-        return resolve().then(() => output);
+        const { isActive, next, resolve, } = await this._createMiddlewares(pushResolver);
+        for (let i = 0; i<sources.length && isActive(); i++) next(sources[i], {}, [ i, ]);
+        await resolve();
+        return output;
     }
 
     async consume (..._) {
         if (_.length) {
             throw new Error('consume should be called without parameters.');
         }
-        const { middlewares, } = this;
         let pushResolver  = {
+            ...await createRace(),
             downStream: new And(),
             async resolve () {},
             next () {},
         };
-        const { resolve, } = middlewares
-            .slice()
-            .reverse()
-            .reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), pushResolver);
+        const { resolve, } = await this._createMiddlewares(pushResolver);
         return resolve();
     }
 
+    async _createMiddlewares (tail) {
+        const { middlewares, } = this;
+        let acc = tail;
+        for (let i = middlewares.length-1; i>=0; i--) {
+            const md = await middlewares[i](acc);
+            acc = { ...acc, ...md, };
+        }
+        return acc;
+    }
+
     generator (producer, isSource) {
+        if (!producer || !producer.constructor && !producer.constructor.name.endsWith('GeneratorFunction')) {
+            console.error('Invalid type passed to generator');
+            const type = producer && producer.constructor ? producer.constructor.name : producer;
+            console.error(type);
+            throw new Error('generator middleware expect to be passed a GeneratorFunction or AsyncGeneratorFunction');
+        }
         return this._create(middlewareCreators.generator(producer, isSource));
     }
 
@@ -256,7 +267,6 @@ class Operator {
     }
 
     takeUntil (predicate) {
-        console.log('create take until');
         const type = typeof predicate;
         if (type === 'string') {
             predicate = createPropertyFilter(predicate);

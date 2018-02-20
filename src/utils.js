@@ -165,24 +165,6 @@ function createObjectComparator (obj) {
     };
 }
 
-async function createEmitter (producer, invokeNextMiddleware, active, val, keep = {}, order = [ 0, ]) {
-    producer = producer.then || producer;
-    return new Promise(resolve => {
-        let resolved = false;
-        function quit () {
-            if (!resolved) {
-                resolved = true;
-                resolve();
-            }
-        }
-        let i = 0;
-        producer(function push (val) {
-            if (resolved) return;
-            invokeNextMiddleware(val, keep, [ ...order, i++, ]);
-        }, quit, active, val, keep);
-    });
-}
-
 function handleResolve (result, resolve) {
     if (result && result.then) {
         return result.then(resolve);
@@ -217,7 +199,6 @@ module.exports = {
     resolveOrdered,
     comparatorError,
     createGrouper,
-    createEmitter,
     createKeySelector,
     createPropertySelector,
     createIntegerRange,

@@ -4,22 +4,22 @@ import { sleepAndReturn, } from '../common';
 describe('operator forEach', () => {
     test('forEach sync', async () => {
         const values = [];
-        await generator((next, done) => {
+        await generator(async function*() {
             for (let i = 0; i<5; i++) {
-                next(i);
+                yield i;
             }
-            done();
         }).forEach(it => values.push(it));
         expect(values).toEqual([ 0, 1, 2, 3, 4, ]);
     });
     test('forEach async', async () => {
         const values = [];
-        await generator(async (next, done) => {
-            for (let i = 0; i<5; i++) {
-                next(await sleepAndReturn(i, i));
+        await generator(async function* () {
+            for (let i = 0; i < 5; i++) {
+                yield await sleepAndReturn(i*10, i);
             }
-            done();
-        }).forEach(it => values.push(it));
+        })
+            .await()
+        .forEach(it => values.push(it));
         expect(values).toEqual([ 0, 1, 2, 3, 4, ]);
     });
 });
