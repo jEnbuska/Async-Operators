@@ -18,18 +18,19 @@ await generator(generatorCallback)... // example below
 #####parallel example
 ```
 const stores = await parallel()
-    .await()
     .flatten()
     .map(await store => ({store, location: await fetch(`${LOCATION_API}/${store.id}`)}))
     .await()
     .filter(store => store.location)
-    .resolve(fetchStores);
+    .map(toCamelCase)
+    .toArray()
+    .resolve(await fetch(`${API_URL}/stores`));
 ```
 #####generator example
 
 Generator is a **advanced** flattener, that gives you more manual control of flow handling
 ```
-const storesWithLocations = await generator(function * fetchStore(){
+const storesWithLocations = await generator(function * fetchAndEmitStores(){
           const stores = await fetch(`${API_URL}/stores`);
           for(leti = 0; i<stores.length && active(); i++){
               yield stores[i];
@@ -39,6 +40,7 @@ const storesWithLocations = await generator(function * fetchStore(){
     .await()
     .filter(store => store.location)
     .map(toCamelCase)
+    .toArray()
     .resolve();
 ```
 ## Stream resolvers:
