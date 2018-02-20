@@ -29,12 +29,12 @@ const stores = await parallel()
 
 Generator is a **advanced** flattener, that gives you more manual control of flow handling
 ```
-async function fetchStore(push, quit, up, value){
+async function fetchStore(push, quit, active, value){
        // "push" value to next middleware
        // "quit" must be called after generator is ready
-       // "up" return false if some middleware upstream is done and does not handle any more data
+       // "active" return false after some middleware downstream is finished. (for example "takeUntil" middleware)
       const stores = await fetch(`${API_URL}/stores`);
-      for(leti = 0; i<stores.length && up(); i++){
+      for(leti = 0; i<stores.length && active(); i++){
           push(stores[i]);
       }
       quit(); // must be invoked, or the generator will never resolve

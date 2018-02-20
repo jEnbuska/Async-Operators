@@ -13,17 +13,17 @@ class Operator {
         const { middlewares, } = this;
         let output = undefined;
         let pushResolver  = {
-            upStream: new And(),
+            downStream: new And(),
             async resolve () {},
             next (val) {
                 output = val;
             },
         };
-        const { upStream, next, resolve, } = middlewares
+        const { downStream, next, resolve, } = middlewares
       .slice()
       .reverse()
       .reduce((acc, middleware) => ({ ...acc, ...middleware(acc), }), pushResolver);
-        for (let i = 0; i<sources.length && upStream.call(); i++) next(sources[i], {}, [ i, ]);
+        for (let i = 0; i<sources.length && downStream.call(); i++) next(sources[i], {}, [ i, ]);
         return resolve().then(() => output);
     }
 
@@ -33,7 +33,7 @@ class Operator {
         }
         const { middlewares, } = this;
         let pushResolver  = {
-            upStream: new And(),
+            downStream: new And(),
             async resolve () {},
             next () {},
         };

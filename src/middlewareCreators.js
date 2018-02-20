@@ -2,10 +2,10 @@
 const { NOT_SET, createSet, createEmitter, orderComparator, entriesToObject, resolveOrdered, } = require('./utils');
 
 function keep (callback) {
-    return function createKeep ({ upStream, next, }) {
+    return function createKeep ({ downStream, next, }) {
         return {
             next: function invokeKeep (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     next(val, { ...keep, ...callback(val, keep), }, order);
                 }
             },
@@ -14,30 +14,30 @@ function keep (callback) {
 }
 
 function generator (producer, isSource) {
-    return function createGenerator ({ next, upStream, resolve, }) {
+    return function createGenerator ({ next, downStream, resolve, }) {
         let toBeResolved = [];
         let resolveCallback;
         let nextCallback;
         let round = 0;
-        let up = () => round === 0 && upStream.call();
+        let active = () => round === 0 && downStream.call();
         if (isSource) {
             nextCallback = next;
             resolveCallback = function resolveGenerator () {
-                return createEmitter(producer, next, up, ).then(resolve);
+                return createEmitter(producer, next, active, ).then(resolve);
             };
         } else {
             nextCallback = function invokeGenerator (val, keep, order) {
-                if (upStream.call()) {
-                    toBeResolved.push(createEmitter(producer, next, up, val, keep, order));
+                if (downStream.call()) {
+                    toBeResolved.push(createEmitter(producer, next, active, val, keep, order));
                 }
             };
             resolveCallback = function resolveGenerator () {
-                if (!upStream.call()) {
+                if (!downStream.call()) {
                     return resolve();
                 }
                 return Promise.all(toBeResolved).then(() => {
                     const current = round++;
-                    up = () => current === round && upStream.call();
+                    active = () => current === round && downStream.call();
                     return resolve();
                 });
             };
@@ -50,11 +50,11 @@ function generator (producer, isSource) {
 }
 
 function first () {
-    return function createFirst ({ resolve, upStream, next, }) {
+    return function createFirst ({ resolve, downStream, next, }) {
         let value = NOT_SET;
-        upStream = upStream.concat(() => value === NOT_SET);
+        downStream = downStream.concat(() => value === NOT_SET);
         return {
-            upStream,
+            downStream,
             resolve: function resolveFirst () {
                 const { val, keep = {}, }= value;
                 value = NOT_SET;
@@ -62,7 +62,7 @@ function first () {
                 return resolve();
             },
             next: function invokeFirst (val, keep) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     value = { val, keep, };
                 }
             },
@@ -71,7 +71,7 @@ function first () {
 }
 
 function default$ (defaultValue) {
-    return function createDefault ({ next, resolve, upStream, }) {
+    return function createDefault ({ next, resolve, downStream, }) {
         let isSet = false;
         return {
             resolve: function resolveDefault () {
@@ -83,7 +83,7 @@ function default$ (defaultValue) {
                 return resolve();
             },
             next: function invokeDefault (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     isSet = true;
                     next(val, keep, order);
                 }
@@ -93,7 +93,7 @@ function default$ (defaultValue) {
 }
 
 function reverse () {
-    return function createReverse ({ next, upStream, resolve, }) {
+    return function createReverse ({ next, downStream, resolve, }) {
         let futures = [];
         return {
             resolve: function resolveReversed () {
@@ -102,7 +102,7 @@ function reverse () {
                 return resolveOrdered(runnables, resolve);
             },
             next: function invokeReverse (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     futures.push(() => next(val, keep, order));
                 }
             },
@@ -111,7 +111,7 @@ function reverse () {
 }
 
 function sort (comparator) {
-    return function createSort ({ next, upStream, resolve, }) {
+    return function createSort ({ next, downStream, resolve, }) {
         let futures = [];
         const compare = function runComparison (a, b) {
             return comparator(a.val, b.val);
@@ -123,7 +123,7 @@ function sort (comparator) {
                 return resolveOrdered(runnables, resolve);
             },
             next: function invokeReverse (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     futures.push({ val, task: () => next(val, keep, order), });
                 }
             },
@@ -132,12 +132,12 @@ function sort (comparator) {
 }
 
 function peek (callback) {
-    return function createPeek ({ upStream, next, }) {
+    return function createPeek ({ downStream, next, }) {
         return {
             next: function invokePeek (val, keep, order) {
                 console.log(val);
-                console.log(upStream.call());
-                if (upStream.call()) {
+                console.log(downStream.call());
+                if (downStream.call()) {
                     callback(val, keep);
                     next(val, keep, order);
                 }
@@ -147,7 +147,7 @@ function peek (callback) {
 }
 
 function toArray () {
-    return function createToArray ({ upStream, next, resolve, }) {
+    return function createToArray ({ downStream, next, resolve, }) {
         let acc = [];
         return {
             resolve: function resolveToArray () {
@@ -157,7 +157,7 @@ function toArray () {
                 return resolve();
             },
             next: function invokeToArray (val) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     console.log('next');
                     console.log(val);
                     acc.push(val);
@@ -168,7 +168,7 @@ function toArray () {
 }
 
 function toSet (picker) {
-    return function createToArray ({ upStream, next, resolve, }) {
+    return function createToArray ({ downStream, next, resolve, }) {
         let acc = new Set();
         return {
             resolve: function resolveToSet () {
@@ -177,7 +177,7 @@ function toSet (picker) {
                 return resolve();
             },
             next: function invokeToSet (val, keep) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     acc.add(picker(val, keep));
                 }
             },
@@ -186,7 +186,7 @@ function toSet (picker) {
 }
 
 function toObject (picker) {
-    return function createToObject ({ upStream, next, resolve, }) {
+    return function createToObject ({ downStream, next, resolve, }) {
         let acc = {};
         return {
             resolve: function resolveToObject () {
@@ -195,7 +195,7 @@ function toObject (picker) {
                 return resolve();
             },
             next: function invokeToObject (val, keep) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     acc[picker(val, keep)] = val;
                 }
             },
@@ -204,7 +204,7 @@ function toObject (picker) {
 }
 
 function toObjectSet (picker) {
-    return function createToArray ({ upStream, next, resolve, }) {
+    return function createToArray ({ downStream, next, resolve, }) {
         let acc = {};
         return {
             resolve: function resolveToObjectSet () {
@@ -213,7 +213,7 @@ function toObjectSet (picker) {
                 return resolve();
             },
             next: function invokeToObjectSet (val, keep) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     acc[picker(val, keep)] = true;
                 }
             },
@@ -221,7 +221,7 @@ function toObjectSet (picker) {
     };
 }
 function toMap (picker) {
-    return function createToMap ({ upStream, next, resolve, }) {
+    return function createToMap ({ downStream, next, resolve, }) {
         let acc = new Map();
         return {
             resolve: function resolveToMap () {
@@ -230,7 +230,7 @@ function toMap (picker) {
                 return resolve();
             },
             next: function invokeToObject (val, keep) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     acc.set(picker(val, keep), val);
                 }
             },
@@ -239,7 +239,7 @@ function toMap (picker) {
 }
 
 function ordered () {
-    return function createOrdered ({ next, upStream, resolve, }) {
+    return function createOrdered ({ next, downStream, resolve, }) {
         let futures = {};
         return {
             resolve: function orderedResolver () {
@@ -248,7 +248,7 @@ function ordered () {
                 return resolveOrdered(runnables, resolve);
             },
             next: function invokeOrdered (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     futures[order] = () => next(val, keep, order);
                 }
             },
@@ -257,10 +257,10 @@ function ordered () {
 }
 
 function flatten (iterator) {
-    return function createFlatten ({ next, upStream, }) {
+    return function createFlatten ({ next, downStream, }) {
         return {
             next: async function invokeFlatten (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     const iterable = iterator(val, keep);
                     for (let i = 0; i<iterable.length; i++) {
                         next(iterable[i], keep, [ ...order, i, ]);
@@ -272,10 +272,10 @@ function flatten (iterator) {
 }
 
 function map (mapper) {
-    return function createMap ({ next, upStream, }) {
+    return function createMap ({ next, downStream, }) {
         return {
             next: function invokeMap (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     next(mapper(val, keep), keep, order);
                 }
             },
@@ -284,42 +284,42 @@ function map (mapper) {
 }
 
 function parallel (limit) {
-    return function createParallel ({ next, upStream, resolve, }) {
+    return function createParallel ({ next, downStream, resolve, }) {
         const futures = [];
         let resolving = [];
-        let upStreamTaskCount = 0;
+        let downStreamTaskCount = 0;
         function onNext () {
-            upStreamTaskCount--;
+            downStreamTaskCount--;
             while (futures.length) {
                 const createTask = futures.shift();
                 const task = createTask();
                 if (task&& task.then) {
-                    upStreamTaskCount++;
+                    downStreamTaskCount++;
                     return task.then(onNext);
                 }
-                upStreamTaskCount--;
+                downStreamTaskCount--;
             }
         }
         return {
             resolve: function resolveParallel () {
-                const upStreamTasks = resolving;
+                const downStreamTasks = resolving;
                 resolving = [];
-                return Promise.all(upStreamTasks).then(resolve);
+                return Promise.all(downStreamTasks).then(resolve);
             },
             next: function invokeParallel (val, keep, order) {
-                if (upStream.call()) {
-                    if (limit && limit<upStreamTaskCount) {
+                if (downStream.call()) {
+                    if (limit && limit<downStreamTaskCount) {
                         futures.push(() => {
                             const output = next(val, keep, order);
                             if (output && output.then) {
-                                upStreamTaskCount++;
+                                downStreamTaskCount++;
                                 return output.then(onNext);
                             }
                         });
                     } else {
                         const result = next(val, keep, order);
                         if (result && result.then) {
-                            upStreamTaskCount++;
+                            downStreamTaskCount++;
                             resolving.push(result.then(onNext));
                         }
                     }
@@ -331,10 +331,10 @@ function parallel (limit) {
 
 function pick (keys) {
     const keySet = createSet(keys);
-    return function createPick ({ next, upStream, }) {
+    return function createPick ({ next, downStream, }) {
         return {
             next: function invokePick (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     val = Object.entries(val)
                         .filter(e => keySet[e[0]])
                         .reduce(entriesToObject, {});
@@ -346,7 +346,7 @@ function pick (keys) {
 }
 
 function distinctBy (historyComparator) {
-    return function createDistinctBy ({ next, upStream, resolve, }) {
+    return function createDistinctBy ({ next, downStream, resolve, }) {
         let history = {};
         return {
             resolve: function resolveDistinctBy () {
@@ -354,7 +354,7 @@ function distinctBy (historyComparator) {
                 return resolve();
             },
             next: function invokeDistinctBy (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     if (historyComparator(val, history, keep)) {
                         next(val, keep, order);
                     }
@@ -364,11 +364,11 @@ function distinctBy (historyComparator) {
     };
 }
 function distinct () {
-    return function createDistinct ({ next, upStream, }) {
+    return function createDistinct ({ next, downStream, }) {
         let history = {};
         return {
             next: function invokeDistinct (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     if (!history[val]) {
                         history[val] = true;
                         next(val, keep, order);
@@ -380,10 +380,10 @@ function distinct () {
 }
 
 function filter (predicate) {
-    return function createFilter ({ upStream, next, }) {
+    return function createFilter ({ downStream, next, }) {
         return {
             next: function invokeFilter (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     if (predicate(val, keep)) {
                         next(val, keep, order);
                     }
@@ -394,10 +394,10 @@ function filter (predicate) {
 }
 
 function reject (predicate) {
-    return function createReject ({ upStream, next, }) {
+    return function createReject ({ downStream, next, }) {
         return {
             next: function invokeReject (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     if (!predicate(val, keep)) {
                         next(val, keep, order);
                     }
@@ -409,10 +409,10 @@ function reject (predicate) {
 
 function omit (keys) {
     const rejectables = new Set(keys);
-    return function createOmit ({ upStream, next, }) {
+    return function createOmit ({ downStream, next, }) {
         return {
             next: function invokeOmit (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     val = Object.entries(val).filter(e => !rejectables.has(e[0])).reduce(entriesToObject, {});
                     next(val, keep, order);
                 }
@@ -423,10 +423,10 @@ function omit (keys) {
 
 function where (matcher) {
     const matchEntries = Object.entries(matcher);
-    return function createWhere ({ upStream, next,  }) {
+    return function createWhere ({ downStream, next,  }) {
         return {
             next: function invokeWhere (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     for (const e of matchEntries) {
                         if (val[e[0]] !== e[1]) {
                             return;
@@ -440,7 +440,7 @@ function where (matcher) {
 }
 
 function skipWhile (predicate) {
-    return function createSkipWhile ({ upStream, next, resolve, }) {
+    return function createSkipWhile ({ downStream, next, resolve, }) {
         let take = false;
         return {
             resolve: function resolveSkipWhile () {
@@ -448,7 +448,7 @@ function skipWhile (predicate) {
                 return resolve();
             },
             next: function invokeSkipWhile (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     if (take || (take = !predicate(val, keep))) {
                         next(val, keep, order);
                     }
@@ -459,7 +459,7 @@ function skipWhile (predicate) {
 }
 
 function scan (scanner, acc) {
-    return function createScan ({ resolve, upStream, next, }) {
+    return function createScan ({ resolve, downStream, next, }) {
         let output = acc;
         return {
             resolve: function resolveScan () {
@@ -467,7 +467,7 @@ function scan (scanner, acc) {
                 return resolve();
             },
             next: async function invokeScan (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     output = scanner(output, val, keep);
                     next(output, keep, order);
                 }
@@ -477,16 +477,16 @@ function scan (scanner, acc) {
 }
 
 function takeUntil (predicate) {
-    return function createTakeUntil ({ resolve, upStream, next, }) {
+    return function createTakeUntil ({ resolve, downStream, next, }) {
         let take = true;
         return {
             resolve: function resolveTakeUntil () {
                 take = true;
                 return resolve();
             },
-            upStream: upStream.concat(() => take),
+            downStream: downStream.concat(() => take),
             next: function invokeTakeUntil (val, keep, order) {
-                if (upStream.call() && take && (take = !predicate(val, keep))) {
+                if (downStream.call() && take && (take = !predicate(val, keep))) {
                     next(val, keep, order);
                 }
             },
@@ -495,16 +495,16 @@ function takeUntil (predicate) {
 }
 
 function takeWhile (predicate) {
-    return function createTakeWhile ({ resolve, upStream, next, }) {
+    return function createTakeWhile ({ resolve, downStream, next, }) {
         let take = true;
         return {
-            upStream: upStream.concat(() => take),
+            downStream: downStream.concat(() => take),
             resolve: function resolveTakeWhile () {
                 take = true;
                 return resolve();
             },
             next: function invokeTakeWhile (val, keep, order) {
-                if (take && (take = predicate(val, keep)) && upStream.call()) {
+                if (take && (take = predicate(val, keep)) && downStream.call()) {
                     next(val, keep, order);
                 }
             },
@@ -514,11 +514,11 @@ function takeWhile (predicate) {
 
 function skip (count) {
     count = Number(count) || 0;
-    return function createSkip ({ upStream, next, }) {
+    return function createSkip ({ downStream, next, }) {
         let total = 0;
         return {
             next: function invokeSkip (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     if (total>=count) {
                         next(val, keep, order);
                     } else {
@@ -530,17 +530,17 @@ function skip (count) {
     };
 }
 function take (max) {
-    return function createTake ({ resolve, upStream, next, }) {
+    return function createTake ({ resolve, downStream, next, }) {
         max = Number(max) || 0;
         let taken = 0;
         return {
-            upStream: upStream.concat(() => taken < max),
+            downStream: downStream.concat(() => taken < max),
             resolve: function resolveTake () {
                 taken = 0;
                 return resolve();
             },
             next: function invokeTake (val, keep, order) {
-                if (taken < max && upStream.call()) {
+                if (taken < max && downStream.call()) {
                     taken++;
                     next(val, keep, order);
                 }
@@ -550,7 +550,7 @@ function take (max) {
 }
 
 function sum (summer) {
-    return function createSum ({ next, upStream, resolve, }) {
+    return function createSum ({ next, downStream, resolve, }) {
         let total = 0;
         return {
             resolve: function resolveSum () {
@@ -559,7 +559,7 @@ function sum (summer) {
                 return resolve();
             },
             next: function invokeSum (val, keep) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     total += summer(val, keep);
                 }
             },
@@ -568,7 +568,7 @@ function sum (summer) {
 }
 
 function reduce (reducer, acc) {
-    return function createReduce ({ next, upStream, resolve, }) {
+    return function createReduce ({ next, downStream, resolve, }) {
         let output = acc;
         return {
             resolve: function resolveReduce () {
@@ -577,7 +577,7 @@ function reduce (reducer, acc) {
                 return resolve();
             },
             next: function invokeReduce (val, keep) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     output = reducer(output, val, keep);
                 }
             },
@@ -586,18 +586,18 @@ function reduce (reducer, acc) {
 }
 
 function some (predicate) {
-    return function createSome ({ next, upStream, resolve, }) {
+    return function createSome ({ next, downStream, resolve, }) {
         let output = false;
-        upStream = upStream.concat(() => !output);
+        downStream = downStream.concat(() => !output);
         return {
-            upStream,
+            downStream,
             resolve: function resolveSome () {
                 next(output, {}, [ 0, ]);
                 output = false;
                 return resolve();
             },
             next: function invokeSome (val, keep) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     output = predicate(val, keep);
                 }
             },
@@ -606,18 +606,18 @@ function some (predicate) {
 }
 
 function every (predicate) {
-    return function createEvery ({ next, upStream, resolve,  }) {
+    return function createEvery ({ next, downStream, resolve,  }) {
         let output = true;
-        upStream = upStream.concat(() => output);
+        downStream = downStream.concat(() => output);
         return {
-            upStream,
+            downStream,
             resolve: function resolveEvery () {
                 next(output, {}, [ 0, ]);
                 output = true;
                 return resolve();
             },
             next: function invokeEvery (val, keep) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     output = !!predicate(val, keep);
                 }
             },
@@ -626,7 +626,7 @@ function every (predicate) {
 }
 
 function await$ () {
-    return function createAwait ({ next, upStream, resolve, }) {
+    return function createAwait ({ next, downStream, resolve, }) {
         let promises = [];
         async function applyAwait (val, keep, order) {
             val = await val;
@@ -639,7 +639,7 @@ function await$ () {
                 return Promise.all(toBeResolved).then(resolve);
             },
             next: function invokeAwait (val, keep, order) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     promises.push(applyAwait(val, keep, order));
                 }
             },
@@ -648,7 +648,7 @@ function await$ () {
 }
 
 function min (comparator) {
-    return function createMin ({ next, upStream, resolve, }) {
+    return function createMin ({ next, downStream, resolve, }) {
         let min = NOT_SET;
         return {
             resolve: function resolveMin () {
@@ -659,7 +659,7 @@ function min (comparator) {
                 return resolve();
             },
             next: function invokeMin (val, keep) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     if (min!==NOT_SET) {
                         if (comparator(min, val, keep) > 0) {
                             min = val;
@@ -674,7 +674,7 @@ function min (comparator) {
 }
 
 function max (comparator) {
-    return function createMin ({ next, upStream, resolve, }) {
+    return function createMin ({ next, downStream, resolve, }) {
         let max = NOT_SET;
         return {
             resolve: function resolveMax () {
@@ -685,7 +685,7 @@ function max (comparator) {
                 return resolve();
             },
             next: function invokeMax (val, keep) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     if (max!==NOT_SET) {
                         if (comparator(max, val, keep) < 0) {
                             max = val;
@@ -700,7 +700,7 @@ function max (comparator) {
 }
 
 function groupBy (callback) {
-    return function createGroupBy ({ next, upStream, resolve, }) {
+    return function createGroupBy ({ next, downStream, resolve, }) {
         let acc = {};
         return {
             resolve: function resolveGroupBy () {
@@ -709,7 +709,7 @@ function groupBy (callback) {
                 return resolve();
             },
             next: function invokeGroupBy (val) {
-                if (upStream.call()) {
+                if (downStream.call()) {
                     callback(acc, val);
                 }
             },

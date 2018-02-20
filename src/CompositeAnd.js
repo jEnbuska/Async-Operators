@@ -10,7 +10,9 @@ class CompositeAnd {
         return new CompositeAnd(predicate, this);
     }
 
-    call = () => this.predicate() && (!this.next || this.next.call())
+    call () {
+        return this.predicate() && (!this.next || this.next.call());
+    }
 }
 module.exports = CompositeAnd;
 function returnTrue () {
