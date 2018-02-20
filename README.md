@@ -13,7 +13,7 @@ familiar functions like 'map', 'filter', 'reduce' etc..
 ```
 const { parallel, generator } = require('lazy_operators');
 await parallel(?number)... // parameter is limit of parallel executions. Defalts to unlimited
-await generator(generatorCallback)... // example below
+await generator(generatorFunc | asyncGeneratorFunc)... // example below
 ```
 #####parallel example
 ```
@@ -139,6 +139,7 @@ const groupedPersons = await parallel()
 .values() //same as .flatten(Object.values)
 .entries() //same as .flatten(Object.entries)
 .flatten(undefined | callback)
+.generator(generatorFunc | asyncGeneratorFunc)
 ```
 default flattener for 'flatten' is Object.values
 
