@@ -31,8 +31,8 @@ module.exports = async function createRace () {
                     get promise () {
                         return _promise;
                     },
-                    race (promise) {
-                        return Promise.race([ promise, _promise, ]);
+                    race (...promises) {
+                        return Promise.race([ _promise, ...promises, ]);
                     },
                     async extendRace () {
                         return next = await createCompositePromise(self);
