@@ -21,8 +21,7 @@ class Operator {
         };
         const { isActive, next, resolve, } = await this._createMiddlewares(pushResolver);
         for (let i = 0; i<sources.length && isActive(); i++) next(sources[i], {}, [ i, ]);
-        await resolve();
-        return output;
+        return resolve().then(() => output);
     }
 
     async consume (..._) {
@@ -57,6 +56,17 @@ class Operator {
             throw new Error('generator middleware expect to be passed a GeneratorFunction or AsyncGeneratorFunction');
         }
         return this._create(middlewareCreators.generator(producer, isSource));
+    }
+
+    delay (ms = 0) {
+        if (Number.isInteger(ms)) {
+            return this._create(middlewareCreators.delay(ms));
+        } else {
+            try {
+                console.error({ ms, });
+            } catch (e) {}
+            throw new Error('Invalid delay passed to delay middleware');
+        }
     }
 
     min (comparator = defaultComparator) {

@@ -774,4 +774,5 @@ module.exports = {
     await: await$,
     generator,
     forEach,
+    delay,
 };
