@@ -82,7 +82,7 @@ function default$ (defaultValue) {
             resolve: function resolveDefault () {
                 if (isSet) {
                     isSet = false;
-                } else {
+                } else if (isActive()) {
                     next(defaultValue, {}); // TODO check isActive
                 }
                 return resolve();
@@ -274,11 +274,14 @@ function ordered () {
 function flatten (iterator) {
     return function createFlatten ({ next, isActive, }) {
         return {
-            next: async function invokeFlatten (val, keep, order) {
+            next: function invokeFlatten (val, keep, order) {
                 if (isActive()) {
                     const iterable = iterator(val, keep);
                     for (let i = 0; i<iterable.length; i++) {
                         next(iterable[i], keep, [ ...order, i, ]);
+                        if (!isActive()) {
+                            break;
+                        }
                     }
                 }
             },
@@ -505,7 +508,7 @@ function scan (scanner, acc) {
                 output = acc;
                 return resolve();
             },
-            next: async function invokeScan (val, keep, order) {
+            next: function invokeScan (val, keep, order) {
                 if (isActive()) {
                     output = scanner(output, val, keep);
                     next(output, keep, order);
