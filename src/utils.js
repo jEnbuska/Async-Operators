@@ -165,26 +165,6 @@ function createObjectComparator (obj) {
     };
 }
 
-function handleResolve (result, resolve) {
-    if (result && result.then) {
-        return result.then(resolve);
-    }
-    return resolve();
-}
-
-function resolveOrdered (runnables, resolve) {
-    let index = 0;
-    function orderedResolver () {
-        if (index<runnables.length) {
-            const val = runnables[index++]();
-            return handleResolve(val, orderedResolver);
-        } else {
-            return resolve();
-        }
-    }
-    return orderedResolver();
-}
-
 module.exports = {
     NOT_SET,
     defaultFilter,
@@ -196,7 +176,6 @@ module.exports = {
     orderComparator,
     defaultComparator,
     createObjectComparator,
-    resolveOrdered,
     comparatorError,
     createGrouper,
     createKeySelector,

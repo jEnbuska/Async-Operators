@@ -1,5 +1,5 @@
 /* eslint-disable consistent-return */
-const { NOT_SET, createSet, orderComparator, entriesToObject, resolveOrdered, } = require('./utils');
+const { NOT_SET, createSet, orderComparator, entriesToObject, } = require('./utils');
 
 function keep (callback) {
     return function createKeep ({ isActive, next, }) {
@@ -17,14 +17,13 @@ function generator (producer, isSource) {
     return function createGenerator ({ next, resolve, race, isActive, }) {
         let toBeResolved = [];
         let resolveCallback;
-        let round = 0;
-        async function generatorResolver (val, keep, order, currentRound) {
+        async function generatorResolver (val, keep, order) {
             const gen = producer(val, keep);
             let intermediate = {};
             let i = 0;
             while (true) {
-                intermediate = await gen.next(intermediate.value);
-                if (intermediate && !intermediate.done && round === currentRound && isActive()) {
+                intermediate = await race(gen.next(intermediate.value));
+                if (intermediate && !intermediate.done && isActive()) {
                     next(intermediate.value, keep, [ ...order, i++, ]);
                     if (isActive()) {
                         continue;
@@ -35,24 +34,18 @@ function generator (producer, isSource) {
         }
         if (isSource) {
             resolveCallback = function resolveGenerator () {
-                return generatorResolver(undefined, {}, [ 0, ], round).then(resolve);
+                return generatorResolver(undefined, {}, [ 0, ]).then(resolve);
             };
         } else {
             resolveCallback = function resolveGenerator () {
-                if (!isActive()) {
-                    return resolve();
-                }
-                return Promise.all(toBeResolved).then(() => {
-                    round++;
-                    return resolve();
-                });
+                return Promise.all(toBeResolved).then(resolve);
             };
         }
         return {
             resolve: resolveCallback,
             next: function invokeGenerator (val, keep, order) {
                 if (isActive()) {
-                    toBeResolved.push(race(generatorResolver(val, keep, order, round)));
+                    toBeResolved.push(generatorResolver(val, keep, order));
                 }
             },
         };
@@ -105,13 +98,17 @@ function default$ (defaultValue) {
 }
 
 function reverse () {
-    return function createReverse ({ next, isActive, resolve, }) {
+    return function createReverse ({ next, isActive, resolve, race, }) {
         let futures = [];
         return {
             resolve: function resolveReversed () {
                 const runnables = futures.reverse();
-                futures = [];
-                return resolveOrdered(runnables, resolve);
+                let index = 0;
+                return (function orderedResolver () {
+                    if (isActive() && index<runnables.length) {
+                        return race(runnables[index++]()).then(orderedResolver);
+                    }
+                })().then(resolve);
             },
             next: function invokeReverse (val, keep, order) {
                 if (isActive()) {
@@ -123,7 +120,7 @@ function reverse () {
 }
 
 function sort (comparator) {
-    return function createSort ({ next, isActive, resolve, }) {
+    return function createSort ({ next, isActive, resolve, race, }) {
         let futures = [];
         const compare = function runComparison (a, b) {
             return comparator(a.val, b.val);
@@ -132,7 +129,12 @@ function sort (comparator) {
             resolve: function resolveSort () {
                 const runnables = futures.sort(compare).map(it => it.task);
                 futures = [];
-                return resolveOrdered(runnables, resolve);
+                let index = 0;
+                return (function orderedResolver () {
+                    if (isActive() && index<runnables.length) {
+                        return race(runnables[index++]()).then(orderedResolver);
+                    }
+                })().then(resolve);
             },
             next: function invokeReverse (val, keep, order) {
                 if (isActive) {
@@ -248,13 +250,17 @@ function toMap (picker) {
 }
 
 function ordered () {
-    return function createOrdered ({ next, isActive, resolve, }) {
+    return function createOrdered ({ next, isActive, resolve, race, }) {
         let futures = {};
         return {
             resolve: function orderedResolver () {
                 const runnables = Object.entries(futures).sort((e1, e2) => orderComparator(e1[0], e2[0])).map((e) => e[1]);
-                futures = {};
-                return resolveOrdered(runnables, resolve);
+                let index = 0;
+                return (function orderedResolver () {
+                    if (isActive() && index<runnables.length) {
+                        return race(runnables[index++]()).then(orderedResolver);
+                    }
+                })().then(resolve);
             },
             next: function invokeOrdered (val, keep, order) {
                 if (isActive()) {
@@ -293,13 +299,13 @@ function map (mapper) {
 }
 
 function parallel (limit) {
-    return function createParallel ({ next, isActive, resolve, }) {
+    return function createParallel ({ next, isActive, resolve, race, }) {
         const futures = [];
         let resolving = [];
         let downStreamTaskCount = 0;
         function onNext () {
             downStreamTaskCount--;
-            while (futures.length) {
+            while (futures.length && isActive()) {
                 const createTask = futures.shift();
                 const task = createTask();
                 if (task&& task.then) {
@@ -326,11 +332,7 @@ function parallel (limit) {
                             }
                         });
                     } else {
-                        const result = next(val, keep, order);
-                        if (result && result.then) {
-                            downStreamTaskCount++;
-                            resolving.push(result.then(onNext));
-                        }
+                        next(val, keep, order);
                     }
                 }
             },
@@ -467,6 +469,34 @@ function skipWhile (predicate) {
     };
 }
 
+function delay (ms) {
+    return function createDelay ({ resolve, isActive, next, race, }) {
+        const delays = [];
+        function createDelay (val, keep, order) {
+            return delays.push(
+                race(new Promise(res => setTimeout(function delayDone () {
+                    if (isActive()) {
+                        next(val, keep, order);
+                        res();
+                    } else {
+                        console.log('cancelled ' + val);
+                    }
+                }, ms)))
+            );
+        }
+        return {
+            resolve: function resolveDelay () {
+                return Promise.all(delays).then(resolve);
+            },
+            next: function invokeDelay (val, keep, order) {
+                if (isActive()) {
+                    createDelay(val, keep, order);
+                }
+            },
+        };
+    };
+}
+
 function scan (scanner, acc) {
     return function createScan ({ resolve, isActive, next, }) {
         let output = acc;
@@ -547,7 +577,6 @@ function take (max) {
         max = Number(max) || 0;
         let taken = 0;
         const { isActive, ...rest } = await extendRace();
-        console.log(isActive);
         return {
             ...rest,
             isActive,
@@ -647,11 +676,8 @@ function every (predicate) {
 function await$ () {
     return function createAwait ({ next, isActive, race, resolve, }) {
         let promises = [];
-        async function applyAwait (val, keep, order) {
-            val = await val;
-            if (isActive()) {
-                next(val, keep, order);
-            }
+        function applyAwait (val, keep, order) {
+            return race(val).then(val => isActive() && next(val, keep, order));
         }
         return {
             resolve: function resolveAwait  () {
@@ -661,7 +687,7 @@ function await$ () {
             },
             next: function invokeAwait (val, keep, order) {
                 if (isActive()) {
-                    promises.push(race(applyAwait(val, keep, order)));
+                    promises.push(applyAwait(val, keep, order));
                 }
             },
         };

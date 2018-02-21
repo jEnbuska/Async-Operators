@@ -13,7 +13,7 @@ describe('compositeRace', () => {
             let resolvedRes;
             promise.then((rid) => resolvedRes = rid);
             await racePromise;
-            expect((Date.now()-before)<100).toBe(true);
+            expect((Date.now()-before)<200).toBe(true);
             expect(isActive()).toBe(false);
             await sleep(5);
             expect(resolvedRes).toBe(0);
