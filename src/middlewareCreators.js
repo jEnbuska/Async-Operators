@@ -7,10 +7,10 @@ function filter ({ middlewareIndex, name = 'filter', params: { createFilter, }, 
             createDownStream: function createFilterDownStream ({ isActive, onNext, catcher, }) {
                 const predicate = createFilter();
                 return {
-                    onNext: function invokeFilter (val, keep, order) {
+                    onNext: function invokeFilter (val, order) {
                         if (isActive()) {
-                            if (predicate(val, keep)) {
-                                return onNext(val, keep, order);
+                            if (predicate(val)) {
+                                return onNext(val, order);
                             }
                         }
                     },
@@ -31,12 +31,12 @@ function endResolver ({ callback, middlewareIndex, name, params: { defaultValue,
                     retire,
                     isActive,
                     onComplete: function resolveSome () {
-                        onNext(output, {}, [ 0, ]);
+                        onNext(output, [ 0, ]);
                         return onComplete();
                     },
-                    onNext: function invokeSome (val, keep) {
+                    onNext: function invokeSome (val) {
                         if (isActive()) {
-                            const { value, done, } = callback(val, keep);
+                            const { value, done, } = callback(val);
                             output = value;
                             if (done) {
                                 retire();
@@ -64,30 +64,14 @@ function ordered ({ callback, middlewareIndex, name = 'ordered', }) {
                             }
                         })().then(onComplete);
                     },
-                    onNext: function invokeOrdered (val, keep, order) {
+                    onNext: function invokeOrdered (val, order) {
                         if (isActive()) {
                             futures[order] = {
                                 val,
                                 task () {
-                                    onNext(val, keep, order);
+                                    onNext(val, order);
                                 },
                             };
-                        }
-                    },
-                };
-            },
-        };
-    };
-}
-function keep ({ callback, }) {
-    return function createKeepUpStream () {
-        return {
-            createDownStream: function createKeepDownStream ({ isActive, onNext, catcher,  }) {
-                return {
-                    onNext: function invokeKeep (val, keep, order) {
-                        if (isActive) {
-                            const out = callback(val, keep);
-                            return onNext(val, { ...keep, ...out, }, order);
                         }
                     },
                 };
@@ -106,31 +90,14 @@ function $default ({ params: { defaultValue, }, }) {
                         if (isSet) {
                             isSet = false;
                         } else if (isActive()) {
-                            onNext(defaultValue, {}, [ 0, ]);
+                            onNext(defaultValue, [ 0, ]);
                         }
                         return onComplete();
                     },
-                    onNext: function invokeDefault (val, keep, order) {
+                    onNext: function invokeDefault (val, order) {
                         if (isActive()) {
                             isSet = true;
-                            return onNext(val, keep, order);
-                        }
-                    },
-                };
-            },
-        };
-    };
-}
-
-function peek ({ callback, }) {
-    return function createPeekUpStream () {
-        return {
-            createDownStream: function createPeekDownStream ({ onNext, isActive, catcher,  }) {
-                return {
-                    onNext: function invokePeek (val, keep, order) {
-                        if (isActive()) {
-                            callback(val, keep);
-                            return onNext(val, keep, order);
+                            return onNext(val, order);
                         }
                     },
                 };
@@ -163,9 +130,9 @@ function parallel ({ middlewareIndex, params: { limit, }, }) {
                     onComplete: function completeParallel () {
                         return Promise.all([ ...pending, ...completeRest(), ]).then(onComplete);
                     },
-                    onNext: function invokeParallel (val, keep, order) {
+                    onNext: function invokeParallel (val, order) {
                         if (isActive()) {
-                            completeLater.push(async () => onNext(val, keep, order));
+                            completeLater.push(async () => onNext(val, order));
                             if (parallelCount!==limit) {
                                 pending.push(completeRest());
                                 return pending[pending.length-1];
@@ -183,19 +150,19 @@ function delay ({ middlewareIndex, params: { getDelay, }, }) {
         return {
             createDownStream: function createDelayDownStream ({ onComplete, isActive, onNext, race, catcher,  }) {
                 const delays = [];
-                async function createDelay (val, keep, order) {
-                    await race(sleep(getDelay(val, keep)));
+                async function createDelay (val, order) {
+                    await race(sleep(getDelay(val)));
                     if (isActive()) {
-                        return onNext(val, keep, order);
+                        return onNext(val, order);
                     }
                 }
                 return {
                     onComplete: function completeDelay () {
                         return Promise.all(delays).then(onComplete);
                     },
-                    onNext: function invokeDelay (val, keep, order) {
+                    onNext: function invokeDelay (val, order) {
                         if (isActive()) {
-                            delays.push(createDelay(val, keep, order));
+                            delays.push(createDelay(val, order));
                             return delays[delays.length-1];
                         }
                     },
@@ -210,8 +177,8 @@ function $await ({ middlewareIndex, }) {
         return {
             createDownStream: function createAwaitDownStream ({ onNext, isActive, race, onComplete, catcher, }) {
                 let promises = [];
-                function applyAwait (val, keep, order) {
-                    const promise = race(val).then(val => isActive() && onNext(val, keep, order));
+                function applyAwait (val, order) {
+                    const promise = race(val).then(val => isActive() && onNext(val, order));
                     promises.push(promise);
                     return promise;
                 }
@@ -221,9 +188,9 @@ function $await ({ middlewareIndex, }) {
                         promises = [];
                         return Promise.all(toBeResolved).then(onComplete);
                     },
-                    onNext: function invokeAwait (val, keep, order) {
+                    onNext: function invokeAwait (val, order) {
                         if (isActive()) {
-                            return applyAwait(val, keep, order);
+                            return applyAwait(val, order);
                         }
                     },
                 };
@@ -237,10 +204,10 @@ function forEach ({ callback, middlewareIndex, }) {
         return {
             createDownStream: function createForEachDownStream ({ catcher, onNext, isActive, }) {
                 return {
-                    onNext: function invokeForEach (val, keep, order) {
+                    onNext: function invokeForEach (val, order) {
                         if (isActive()) {
-                            callback(val, keep);
-                            return onNext(val, keep, order);
+                            callback(val);
+                            return onNext(val, order);
                         }
                     },
                 };
@@ -255,10 +222,10 @@ function map ({ name = 'map', middlewareIndex, params: { createCallback, }, }) {
         return {
             createDownStream: function createMapDownStream ({ onNext, isActive, catcher,  }) {
                 return {
-                    onNext: function invokeMap (val, keep, order) {
+                    onNext: function invokeMap (val, order) {
                         if (isActive()) {
-                            const out = callback(val, keep);
-                            return onNext(out, keep, order);
+                            const out = callback(val);
+                            return onNext(out, order);
                         }
                     },
                 };
@@ -272,11 +239,11 @@ function generator ({ callback, name = 'generator', middlewareIndex, }) {
         return {
             createDownStream: function createGeneratorDownStream ({ onNext, onComplete, race, isActive, catcher,  }) {
                 let completeCallback;
-                async function generatorResolver (val, keep, order = []) {
+                async function generatorResolver (val, order = []) {
                     let gen;
-                    gen = await callback(val, keep);
+                    gen = await callback(val);
                     if (!gen.next) {
-                        return onNext(gen, keep, order);
+                        return onNext(gen, order);
                     }
                     let result = {};
                     let i = 0;
@@ -287,7 +254,7 @@ function generator ({ callback, name = 'generator', middlewareIndex, }) {
                             if (isActive()) {
                                 if (result.done) return Promise.all(promises);
                                 else {
-                                    promises.push(onNext(result.value, keep, [ ...order, i++, ]));
+                                    promises.push(onNext(result.value, [ ...order, i++, ]));
                                     if (isActive()) continue;
                                 }
                             }
@@ -297,7 +264,7 @@ function generator ({ callback, name = 'generator', middlewareIndex, }) {
                 }
                 if (!middlewareIndex) { // first
                     completeCallback = function completeGenerator () {
-                        return generatorResolver(undefined, {}, [ 0, ]).then(onComplete);
+                        return generatorResolver(undefined, [ 0, ]).then(onComplete);
                     };
                 } else {
                     completeCallback = function completeGenerator () {
@@ -306,9 +273,9 @@ function generator ({ callback, name = 'generator', middlewareIndex, }) {
                 }
                 return {
                     onComplete: completeCallback,
-                    onNext: function invokeGenerator (val, keep, order) {
+                    onNext: function invokeGenerator (val, order) {
                         if (isActive()) {
-                            toBeResolved.push(generatorResolver(val, keep, order));
+                            toBeResolved.push(generatorResolver(val, order));
                             return toBeResolved[toBeResolved.length-1];
                         }
                     },
@@ -324,13 +291,13 @@ function reduce ({ name, middlewareIndex, params: { createReducer, }, }) {
                 const { reduce, defaultValue, } = createReducer();
                 let acc = defaultValue;
                 return {
-                    onComplete: function complet.reduce((acc, next) => [...acc, next], []) () {
-                        if (isActive()) onNext(acc, {}, [ 0, ]);
+                    onComplete: function completeReduce () {
+                        if (isActive()) onNext(acc, [ 0, ]);
                         return onComplete();
                     },
-                    onNext: function invok.reduce((acc, next) => [...acc, next], []) (val, keep, order) {
+                    onNext: function invokReduce (val) {
                         if (isActive()) {
-                            return acc = reduce(acc, val, keep);
+                            return acc = reduce(acc, val);
                         }
                     },
                 };
@@ -346,10 +313,10 @@ function postLimiter ({ name, middlewareIndex, params: { createCallback, }, }) {
                 const { isActive, retire, ...rest } = await extendRace();
                 return {
                     ...rest, isActive, retire,
-                    onNext: function invokePostLimiter (val, keep, order) {
+                    onNext: function invokePostLimiter (val, order) {
                         if (isActive()) {
-                            const res = onNext(val, keep, order);
-                            if (callback(val, keep)) {
+                            const res = onNext(val, order);
+                            if (callback(val)) {
                                 retire();
                             } else {
                                 return res;
@@ -372,10 +339,10 @@ function preLimiter ({ middlewareIndex, name, params: { createCallback, }, }) {
                     ...rest,
                     retire,
                     isActive,
-                    onNext: function invokePreLimiter (val, keep, order) {
+                    onNext: function invokePreLimiter (val, order) {
                         if (isActive()) {
-                            if (callback(val, keep)) {
-                                return onNext(val, keep, order);
+                            if (callback(val)) {
+                                return onNext(val, order);
                             } else {
                                 retire();
                             }
@@ -387,8 +354,6 @@ function preLimiter ({ middlewareIndex, name, params: { createCallback, }, }) {
     };
 }
 module.exports = {
-    keep,
-    peek,
     forEach,
     parallel,
     $default,

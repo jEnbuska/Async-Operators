@@ -19,18 +19,16 @@ const { createFirstEndResolver,
     createMinReducer,
     createSkipFilter,
     createWhereFilter,
-    arrayReducer,
     createTakeUntilFilterResolver,
     createTakeWhileFilterResolver,
     defaultFilter,
-    identity,
     defaultComparator,
     createGroupByReducer,
     createGeneratorFromIterator,
     createIntegerRange,  } = require('./utils');
 /* eslint-disable consistent-return */
 
-const { $default, $await, generator, keep, filter, parallel, map, ordered, postLimiter, preLimiter, reduce, endResolver, delay, forEach, } = require('./middlewareCreators');
+const { $default, $await, generator, filter, parallel, map, ordered, postLimiter, preLimiter, reduce, endResolver, delay, forEach, } = require('./middlewareCreators');
 
 class Operator {
 
@@ -55,7 +53,7 @@ class Operator {
         };
         const { isActive, onNext, onComplete, } = await this._createMiddlewares(rootResolver);
         const promises = [];
-        for (let i = 0; i<sources.length && isActive(); i++) promises.push(onNext(sources[i], {}, [ i, ]));
+        for (let i = 0; i<sources.length && isActive(); i++) promises.push(onNext(sources[i], [ i, ]));
         // await Promise.all(promises);
         return onComplete().then(() => output);
     }
@@ -306,30 +304,6 @@ class Operator {
     take (max) {
         const createCallback = () => createTakeLimiter(max);
         return this._create({ operator: postLimiter, name: 'take', params: { createCallback, }, });
-    }
-
-    // keep
-    keep (picker = identity, ...rest) { // this was probably a bad idea
-        let callback;
-        if (rest.length) {
-            if (typeof picker !=='function') {
-                const keys = [ picker, ...rest, ];
-                callback = (val, keep) => keys.reduce((acc, k) => {
-                    acc[k] = val[k];
-                    return acc;
-                }, keep);
-            } else {
-                throw new Error('Invalid parameter passed to keep');
-            }
-        } else if (typeof picker !=='function') {
-            callback = (val, keep) => {
-                keep[picker] = val[picker];
-                return keep;
-            };
-        } else {
-            callback = picker;
-        }
-        return this._create({ operator: keep, callback, });
     }
 
     _create ({ operator, callback, params = {}, name, }) {

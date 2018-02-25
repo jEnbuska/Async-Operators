@@ -49,11 +49,15 @@ describe('race', () => {
             yield 20;
             yield 30;
         })
+            .forEach(it => console.log(it))
             .map(int => sleepAndReturn(int, int))
+            .forEach(it => console.log(it))
             .ordered()
             .await()
+            .forEach(it => console.log(it))
             .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
+            .forEach(it => console.log(it))
             .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(intermediate).toEqual([ 10, 20, ]);

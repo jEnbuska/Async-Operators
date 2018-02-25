@@ -180,16 +180,16 @@ function createSkipFilter (count) {
 }
 
 function createMinReducer (comparator) {
-    return function minReducer (acc = NOT_SET, val, keep) {
-        if (acc===NOT_SET || comparator(acc, val, keep) > 0) {
+    return function minReducer (acc = NOT_SET, val) {
+        if (acc===NOT_SET || comparator(acc, val) > 0) {
             return val;
         }
         return acc;
     };
 }
 function createMaxReducer (comparator) {
-    return function maxReducer (acc = NOT_SET, val, keep) {
-        if (acc===NOT_SET || comparator(acc, val, keep) < 0) {
+    return function maxReducer (acc = NOT_SET, val) {
+        if (acc===NOT_SET || comparator(acc, val) < 0) {
             return val;
         }
         return acc;
@@ -197,8 +197,8 @@ function createMaxReducer (comparator) {
 }
 
 function createCustomReducer (callback) {
-    return function reducer (acc, val, keep) {
-        return callback(acc, val, keep);
+    return function reducer (acc, val) {
+        return callback(acc, val);
     };
 }
 function createSumReducer () {
@@ -269,14 +269,14 @@ function createDistinctFilter () {
 }
 
 function createNegatePredicate (predicate) {
-    return function negatePredicate (val, keep) {
-        return !predicate(val, keep);
+    return function negatePredicate (val) {
+        return !predicate(val);
     };
 }
 
 function createScanMapper (callback, acc) {
-    return function scanMapper (val, keep) {
-        return acc = callback(acc, val, keep);
+    return function scanMapper (val) {
+        return acc = callback(acc, val);
     };
 }
 
@@ -296,14 +296,11 @@ function createTakeLimiter (limit) {
 function createEveryEndResolver (predicate) {
     return {
         defaultValue: true,
-        callback (val, keep) {
-            console.log(val);
-            const value = !!predicate(val, keep);
-            console.log({ value, });
+        callback (val) {
+            const value = !!predicate(val);
             return {
                 done: !value,
                 value,
-                keep,
             };
         },
     };
@@ -312,10 +309,9 @@ function createEveryEndResolver (predicate) {
 function createFirstEndResolver () {
     return {
         defaultValue: true,
-        callback (val, keep) {
+        callback () {
             return {
                 value: false,
-                keep,
                 done: true,
             };
         },
@@ -325,11 +321,10 @@ function createFirstEndResolver () {
 function createSomeEndResolver (predicate) {
     return {
         defaultValue: false,
-        callback (val, keep) {
-            if (predicate(val, keep)) {
+        callback (val) {
+            if (predicate(val)) {
                 return {
                     value: true,
-                    keep,
                     done: true,
                 };
             } else {
@@ -344,31 +339,31 @@ function createSomeEndResolver (predicate) {
 
 function createSkipWhileFilter (predicate) {
     let open = false;
-    return function skipWhileFilterer (val, keep) {
+    return function skipWhileFilterer (val) {
         if (!open) {
-            open = !predicate(val, keep);
+            open = !predicate(val);
             return open;
         } else return true;
     };
 }
 function createTakeWhileFilterResolver (predicate) {
-    return function takeWhileFilterResolver (val, keep) {
-        return predicate(val, keep);
+    return function takeWhileFilterResolver (val) {
+        return predicate(val);
     };
 }
 function createTakeUntilFilterResolver (predicate) {
     let open = true;
-    return function takeWhileFilterResolver (val, keep) {
+    return function takeWhileFilterResolver (val) {
         if (open) {
-            open = !predicate(val, keep);
+            open = !predicate(val);
             return open;
         }
         return false;
     };
 }
 function createGeneratorFromIterator (createIterator = Object.values) {
-    return function * iterableGenerator (val, keep) {
-        const arr = createIterator(val, keep);
+    return function * iterableGenerator (val) {
+        const arr = createIterator(val);
         for (let i = 0; i<arr.length; i++) {
             yield arr[i];
         }
