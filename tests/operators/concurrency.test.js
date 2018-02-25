@@ -43,9 +43,7 @@ describe('concurrency operators ', () => {
     test('parallel with max execution limit', async() => {
         const results = await parallel(3)
             .map(it => it())
-            .peek(it => console.log('here'))
             .await()
-            .peek(it => console.log('here'))
             .toArray()
             .resolve(
                 () => sleepAndReturn(0, 0), () => sleepAndReturn(100, 100), () => sleepAndReturn(25, 25),

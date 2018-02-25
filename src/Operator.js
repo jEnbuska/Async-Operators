@@ -30,7 +30,7 @@ const { createFirstEndResolver,
     createIntegerRange,  } = require('./utils');
 /* eslint-disable consistent-return */
 
-const { $default, $await, peek, generator, keep, filter, parallel, map, ordered, postLimiter, preLimiter, reduce, endResolver, delay, forEach, } = require('./middlewareCreators');
+const { $default, $await, generator, keep, filter, parallel, map, ordered, postLimiter, preLimiter, reduce, endResolver, delay, forEach, } = require('./middlewareCreators');
 
 class Operator {
 
@@ -157,7 +157,7 @@ class Operator {
     /* reducers end*/
 
     forEach (callback) {
-        return this._create({ operator: forEach, callback, }).consume();
+        return this._create({ operator: forEach, callback, });
     }
 
     /* generators */
@@ -223,15 +223,6 @@ class Operator {
     // default
     default (defaultValue) {
         return this._create({ operator: $default, params: { defaultValue, }, });
-    }
-
-    // peek
-    peek (callback = console.log) {
-        if (typeof callback === 'string') {
-            const prefix = callback;
-            callback = val => console.log(`${prefix}:${val}`);
-        }
-        return this._create({ operator: peek, callback, });
     }
 
     // parallel

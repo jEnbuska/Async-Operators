@@ -233,12 +233,15 @@ function $await ({ middlewareIndex, }) {
 }
 
 function forEach ({ callback, middlewareIndex, }) {
-    return function createForEachUpStream ({ catcher, }) {
+    return function createForEachUpStream ({ }) {
         return {
-            createDownStream: function createForEachDownStream () {
+            createDownStream: function createForEachDownStream ({ catcher, onNext, isActive, }) {
                 return {
                     onNext: function invokeForEach (val, keep, order) {
-                        return callback(val, keep);
+                        if (isActive()) {
+                            callback(val, keep);
+                            return onNext(val, keep, order);
+                        }
                     },
                 };
             },

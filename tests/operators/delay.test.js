@@ -13,7 +13,7 @@ describe('delay operator', () => {
             expect(true).toBeFalsy();// should never reach this
         })
             .delay(10)
-            .peek(delayName => intermediate.push(delayName))
+            .forEach(delayName => intermediate.push(delayName))
             .takeUntil(it => it==='delay_2')
             .toArray()
             .resolve();

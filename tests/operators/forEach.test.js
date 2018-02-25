@@ -8,7 +8,8 @@ describe('operator forEach', () => {
             for (let i = 0; i<5; i++) {
                 yield i;
             }
-        }).forEach(it => values.push(it));
+        }).forEach(it => values.push(it))
+            .consume();
         expect(values).toEqual([ 0, 1, 2, 3, 4, ]);
     });
     test('forEach async', async () => {
@@ -19,7 +20,8 @@ describe('operator forEach', () => {
             }
         })
             .await()
-        .forEach(it => values.push(it));
+        .forEach(it => values.push(it))
+            .consume();
         expect(values).toEqual([ 0, 1, 2, 3, 4, ]);
     });
 });

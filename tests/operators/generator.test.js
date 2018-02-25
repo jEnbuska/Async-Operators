@@ -31,7 +31,7 @@ describe('operator generator', () => {
             yield await sleepAndReturn(30, 30);
         })
             .toArray()
-            .peek(it => expect(it).toEqual([ 20, 30, ]))
+            .forEach(it => expect(it).toEqual([ 20, 30, ]))
             .generator(async function*(val) {
                 yield await sleepAndReturn(10, [ ...val, 10, ]);
                 yield await sleepAndReturn(20, [ 20, ...val, ]);
@@ -51,9 +51,9 @@ describe('operator generator', () => {
             yield await sleepAndReturn(30, 30);
             yield await sleepAndReturn(40, 40);
         })
-            .peek(it => tries.push(it))
+            .forEach(it => tries.push(it))
             .takeWhile(it => it !== 0)
-            .peek(it => passes.push(it))
+            .forEach(it => passes.push(it))
             .consume();
         expect(tries).toEqual([ 20, 10, 0, ]);
         expect(passes).toEqual([ 20, 10, ]);
@@ -89,7 +89,7 @@ describe('operator generator', () => {
                 }
             })
             .await()
-            .peek(it => results.push(it))
+            .forEach(it => results.push(it))
             .consume();
         expect(results).toEqual([ 0, 10,  20, ]);
     });
@@ -102,12 +102,12 @@ describe('operator generator', () => {
             yield 2;
             yield await sleepAndReturn(1000, 3);
         })
-        .peek(it => console.log(it))
+        .forEach(it => console.log(it))
         .takeUntil(it => {
             console.log(it);
             return it===2;
         })
-        .peek(it => results.push(it))
+        .forEach(it => results.push(it))
         .consume();
         expect((Date.now() - before)<500).toBe(true);
         expect(results).toEqual([ 1, ]);
@@ -143,10 +143,10 @@ describe('operator generator', () => {
             }
         })
             .parallel(3)
-            .peek(before => executionOrder.push({ before, }))
+            .forEach(before => executionOrder.push({ before, }))
             .map((it) => sleepAndReturn(it+5, it))
             .await()
-            .peek(after => executionOrder.push({ after, }))
+            .forEach(after => executionOrder.push({ after, }))
             .toArray()
             .resolve();
 
@@ -182,7 +182,7 @@ describe('operator generator', () => {
             yield [ 6, 7, 8, ];
         })
             .parallel(2)
-            .peek((arr) => {
+            .forEach((arr) => {
                 maxUp+=arr.length;
                 if (maxUp>6) {
                     invalidParallelCountUp = true;
@@ -195,11 +195,11 @@ describe('operator generator', () => {
                 }
             })
             .parallel(2)
-            .peek(() => {
+            .forEach(() => {
                 maxDown++;
                 if (maxDown>2) invalidParallelCountDown = true;
             })
-            .peek(() => {
+            .forEach(() => {
                 maxUp--;
                 maxDown--;
             })

@@ -12,18 +12,18 @@ describe('parallel tests', () => {
                 yield i;
             }
         })
-            .peek(unControlled => executionOrder.push({ unControlled, }))
+            .forEach(unControlled => executionOrder.push({ unControlled, }))
             .parallel(3)
-            .peek(() => concurrent++)
-            .peek(() => {
+            .forEach(() => concurrent++)
+            .forEach(() => {
                 if (concurrent>concurrentMax) {
                     concurrentMax = concurrent;
                 }
             })
-            .peek(controlled => executionOrder.push({ controlled, }))
+            .forEach(controlled => executionOrder.push({ controlled, }))
             .delay(5)
-            .peek(toBeResolved => executionOrder.push({ toBeResolved, }))
-            .peek(() => --concurrent)
+            .forEach(toBeResolved => executionOrder.push({ toBeResolved, }))
+            .forEach(() => --concurrent)
             .toArray()
             .resolve();
         expect(concurrentMax).toBe(3);
@@ -33,13 +33,9 @@ describe('parallel tests', () => {
     test('parallel as source', async() => {
         const executionOrder = [];
         const result = await parallel(3)
-            .peek(it => console.log(it))
-            .peek(before => executionOrder.push({ before, }))
-            .peek(it => console.log(it))
+            .forEach(before => executionOrder.push({ before, }))
             .delay(int => int*2+5)
-            .peek(it => console.log(it))
-            .peek(after => executionOrder.push({ after, }))
-            .peek(it => console.log(it))
+            .forEach(after => executionOrder.push({ after, }))
             .toArray()
             .resolve(0, 1, 2, 3, 4, 5, 6);
         expect(result).toEqual([ 0, 1, 2, 3, 4, 5, 6, ]);
@@ -93,24 +89,22 @@ describe('parallel tests', () => {
         let lowerMax = 0;
         let upperMax = 0;
         const result = await parallel(2)
-            .peek(() => {
-                upper+=3;
-            })
-            .peek(() => {
+            .forEach(() => upper+=3)
+            .forEach(() => {
                 if (upperMax<upper) {
                     upperMax=upper;
                 }
             })
             .flatten()
             .delay(5)
-            .peek(() => upper--)
+            .forEach(() => upper--)
             .parallel(2)
-            .peek(() => lower++)
-            .peek(() => {
+            .forEach(() => lower++)
+            .forEach(() => {
                 if (lowerMax<lower) lowerMax = lower;
             })
             .delay(5)
-            .peek(() => lower--)
+            .forEach(() => lower--)
             .toArray()
             .resolve([ 0, 1, 2, ], [ 3, 4, 5, ], [ 6, 7, 8, ]);
         expect(result.sort()).toEqual([ 0, 1, 2, 3, 4, 5, 6, 7, 8, ]);

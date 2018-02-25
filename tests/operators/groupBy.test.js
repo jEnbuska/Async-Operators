@@ -4,7 +4,6 @@ describe('operator groupBy', () => {
 
     test('groupBy with string instead callback as param', async () => {
         const result = await parallel()
-            .peek(it => console.log(it))
             .groupBy('name')
             .resolve({ name: 'John', age: 20, }, { name: 'Lisa', age: 30, }, { name: 'John', age: 25, });
         expect(result).toEqual({ John: [ { name: 'John', age: 20, }, { name: 'John', age: 25, }, ], Lisa: [ { name: 'Lisa', age: 30, }, ], });

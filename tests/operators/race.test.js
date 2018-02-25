@@ -13,7 +13,7 @@ describe('race', () => {
             expect(true).toBeFalsy();// should never reach this
             yield await sleepAndReturn(100, 3);
         })
-            .peek(int => intermediate.push(int))
+            .forEach(int => intermediate.push(int))
             .takeUntil(it => it===2)
             .toArray()
             .resolve();
@@ -32,7 +32,7 @@ describe('race', () => {
         })
             .map(int => sleepAndReturn(int, int))
             .await()
-            .peek(int => intermediate.push(int))
+            .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
             .toArray()
             .resolve();
@@ -52,7 +52,7 @@ describe('race', () => {
             .map(int => sleepAndReturn(int, int))
             .ordered()
             .await()
-            .peek(int => intermediate.push(int))
+            .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
             .toArray()
             .resolve();
@@ -72,7 +72,7 @@ describe('race', () => {
             .map(int => sleepAndReturn(int, int))
             .sort()
             .await()
-            .peek(int => intermediate.push(int))
+            .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
             .toArray()
             .resolve();
@@ -92,7 +92,7 @@ describe('race', () => {
             .map(int => sleepAndReturn(int, int))
             .reverse()
             .await()
-            .peek(int => intermediate.push(int))
+            .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
             .toArray()
             .resolve();
@@ -112,7 +112,7 @@ describe('race', () => {
             .map(int => sleepAndReturn(int, int))
             .delay(10)
             .await()
-            .peek(int => intermediate.push(int))
+            .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
             .toArray()
             .resolve();
@@ -131,7 +131,7 @@ describe('race', () => {
             .map(int => sleepAndReturn(int, int))
             .parallel()
             .await()
-            .peek(int => intermediate.push(int))
+            .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
             .toArray()
             .resolve();
