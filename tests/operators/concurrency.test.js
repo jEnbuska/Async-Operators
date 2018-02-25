@@ -12,6 +12,15 @@ describe('concurrency operators ', () => {
         expect(results).toEqual([ 10, 5, ]);
     });
 
+    test('temp', async () => {
+        const results = await parallel()
+            .await()
+            .ordered()
+            .toArray()
+            .resolve(10, 5);
+        expect(results).toEqual([ 10, 5, ]);
+    })
+
     test('parallel await', async() => {
         const results = await parallel()
             .await()
@@ -34,7 +43,9 @@ describe('concurrency operators ', () => {
     test('parallel with max execution limit', async() => {
         const results = await parallel(3)
             .map(it => it())
+            .peek(it => console.log('here'))
             .await()
+            .peek(it => console.log('here'))
             .toArray()
             .resolve(
                 () => sleepAndReturn(0, 0), () => sleepAndReturn(100, 100), () => sleepAndReturn(25, 25),
@@ -44,6 +55,7 @@ describe('concurrency operators ', () => {
               (50 -> 0) => [3]=50 (at 50ms) => [4] = 0; (at 50ms)
         * */
         expect(results).toEqual([ 0, 25, 25, 75, 100, 150, ]);
+
     });
 
     test('ordered', async() => {

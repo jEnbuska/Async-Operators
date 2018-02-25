@@ -18,9 +18,9 @@ describe('operator sort', () => {
         expect(result).toEqual([ 3, 2, 1, ]);
     });
 
-    test('sort multiple secondary object ASC comparisons', async() => {
+    test('sortBy multiple secondary object ASC comparisons', async() => {
         const result = await parallel()
-            .sort({ age: 'ASC', income: 'ASC', gender: 'ASC', })
+            .sortBy({ age: 'ASC', income: 'ASC', gender: 'ASC', })
             .toArray()
             .resolve(
                 { name: 'John', age: 25, gender: 1, income: 3000, },
@@ -40,9 +40,9 @@ describe('operator sort', () => {
         ]);
     });
 
-    test('sort multiple secondary object ASC comparisons', async() => {
+    test('sortBy multiple secondary object DESC comparisons', async() => {
         const result = await parallel()
-            .sort({ age: 'DESC', income: 'DESC', gender: 'DESC', })
+            .sortBy({ age: 'DESC', income: 'DESC', gender: 'DESC', })
             .toArray()
             .resolve(
                 { name: 'John', age: 25, gender: 1, income: 3000, },

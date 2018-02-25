@@ -62,6 +62,7 @@ describe('misc tests', () => {
         const results = await parallel()
             .await()
             .filter(it => it>20)
+            .peek(it => console.log(it))
             .default('nothing')
             .resolve(sleepAndReturn(10, 10), sleepAndReturn(5, 5));
         expect(results).toBe('nothing');
@@ -125,8 +126,9 @@ describe('misc tests', () => {
 
     test('reduce', async () => {
         const result = await parallel()
-            .parallel()
+            .peek(it => console.log(it))
             .await()
+            .peek(it => console.log(it))
             .reduce((acc, n) => ({ ...acc, [n]: n, }), {})
             .resolve(sleepAndReturn(30, 30), sleepAndReturn(20, 20));
         expect(result).toEqual({ 20: 20, 30: 30, });
@@ -142,7 +144,9 @@ describe('misc tests', () => {
 
     test('takeUntil', async () => {
         const result = await parallel()
+            .peek(it => console.log(it))
             .takeUntil(it => it===30)
+            .peek(it => console.log(it))
             .toArray()
             .resolve(1, 2, 3, 25, 30, 40, 5);
         expect(result).toEqual([ 1, 2, 3, 25, ]);
@@ -150,7 +154,9 @@ describe('misc tests', () => {
 
     test('skipWhile', async () => {
         const result = await parallel()
+            .peek(it => console.log(it))
             .skipWhile(it => it<30)
+            .peek(it => console.log(it))
             .toArray()
             .resolve(1, 2, 3, 25, 30, 40, 5);
         expect(result).toEqual([ 30, 40, 5, ]);
@@ -175,7 +181,7 @@ describe('misc tests', () => {
     test('min', async () => {
         const result = await parallel()
             .min()
-            .resolve(1, 2, -1, 3);
+            .resolve(1, -1, 3, 2);
         expect(result).toBe(-1);
     });
 

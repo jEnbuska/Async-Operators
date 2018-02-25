@@ -1,7 +1,7 @@
 import { generator, } from '../../';
 import { sleepAndReturn, sleep, } from '../common';
 
-describe.only('race', () => {
+describe('race', () => {
 
     test('generator should stop emitting values after cancelled', async() => {
         const intermediate = [];

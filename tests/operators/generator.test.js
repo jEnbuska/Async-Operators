@@ -1,5 +1,5 @@
 import { parallel, generator, } from '../../';
-import { sleepAndReturn, } from '../common';
+import { sleepAndReturn, sleep, } from '../common';
 
 describe('operator generator', () => {
 
@@ -105,7 +105,7 @@ describe('operator generator', () => {
         .peek(it => console.log(it))
         .takeUntil(it => {
             console.log(it);
-            return it===2
+            return it===2;
         })
         .peek(it => results.push(it))
         .consume();
@@ -113,4 +113,101 @@ describe('operator generator', () => {
         expect(results).toEqual([ 1, ]);
     });
 
+    test('generator with normal function should not cause error', async() => {
+
+        const result = await generator(function () {
+            return [ 1, 2, 3, ];
+        })
+            .flatten()
+            .toArray()
+            .resolve();
+        expect(result).toEqual([ 1, 2, 3, ]);
+    });
+
+    test('generator with async function asyncfunction should not cause error', async() => {
+
+        const result = await generator(async function () {
+            return await sleepAndReturn(20, [ 1, 2, 3, ]);
+        })
+            .flatten()
+            .toArray()
+            .resolve();
+        expect(result).toEqual([ 1, 2, 3, ]);
+    });
+
+    test('generator with parallel', async() => {
+        const executionOrder = [];
+        const result = await generator(function * () {
+            for (let i = 0; i<7; i++) {
+                yield i;
+            }
+        })
+            .parallel(3)
+            .peek(before => executionOrder.push({ before, }))
+            .map((it) => sleepAndReturn(it+5, it))
+            .await()
+            .peek(after => executionOrder.push({ after, }))
+            .toArray()
+            .resolve();
+
+        expect(result).toEqual([ 0, 1, 2, 3, 4, 5, 6, ]);
+        expect(executionOrder).toEqual([
+            { before: 0, },
+            { before: 1, },
+            { before: 2, },
+
+            { after: 0, },
+            { before: 3, },
+            { after: 1, },
+            { before: 4, },
+            { after: 2, },
+            { before: 5, },
+
+            { after: 3, },
+            { before: 6, },
+            { after: 4, },
+            { after: 5, },
+            { after: 6, },
+        ]);
+    });
+
+    test('double parallel with generators', async() => {
+        let maxUp = 0;
+        let maxDown = 0;
+        let invalidParallelCountUp = false;
+        let invalidParallelCountDown = false;
+        const result = await generator(async function*() {
+            yield [ 0, 1, 2, ];
+            yield [ 3, 4, 5, ];
+            yield [ 6, 7, 8, ];
+        })
+            .parallel(2)
+            .peek((arr) => {
+                maxUp+=arr.length;
+                if (maxUp>6) {
+                    invalidParallelCountUp = true;
+                }
+            })
+            .generator(async function*(arr) {
+                await sleep(1+arr[0]*5);
+                for (let i = 0; i<arr.length; i++) {
+                    yield arr[i];
+                }
+            })
+            .parallel(2)
+            .peek(() => {
+                maxDown++;
+                if (maxDown>2) invalidParallelCountDown = true;
+            })
+            .peek(() => {
+                maxUp--;
+                maxDown--;
+            })
+            .toArray()
+            .resolve();
+        const sortedResult =await parallel().flatten().sort().toArray().resolve(result);
+        expect(sortedResult ).toEqual([ 0, 1, 2, 3, 4, 5, 6, 7, 8, ]);
+        expect(invalidParallelCountDown).toBeFalsy();
+        expect(invalidParallelCountUp).toBeFalsy();
+    });
 });

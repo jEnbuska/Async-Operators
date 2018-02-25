@@ -9,22 +9,14 @@ describe('operator map', () => {
         expect(result).toBe(2);
     });
 
-    test('map sync with string', async () => {
-        const result = await parallel()
-            .map('name')
-            .toArray()
-            .resolve({ name: 'John', }, { name: 'Lisa', });
-        expect(result).toEqual([ 'John', 'Lisa', ]);
-    });
-
     test('map with generator', async () => {
-        const result = await generator(async function*(){
+        const result = await generator(async function*() {
             yield await sleepAndReturn(5, 5);
             yield await sleepAndReturn(10, 10);
             yield await sleepAndReturn(20, 20);
         }).map(it => it*2)
             .toArray()
             .resolve();
-        //expect(result).toEqual([ 10, 20, 40, ]);
+        expect(result).toEqual([ 10, 20, 40, ]);
     });
 });

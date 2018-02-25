@@ -28,6 +28,7 @@ describe('examples', async () => {
         expect(names).toEqual([ 'John', 'Doe', ]);
 
         const firstTwoNumbers = await pipe
+            .peek(it => console.log(it))
             .toArray()
             .resolve([ 1, ],  [ 2, 3, ], [ 4, 5, 6, ]);
         expect(firstTwoNumbers).toEqual([ 1, 2, ]);

@@ -7,10 +7,17 @@ function defaultFilter (val) {
     return !!val;
 }
 
-function createPropertyFilter (prop) {
-    return function propertyFilter (val) {
-        return !!val && val[prop];
-    };
+function sleep(ms){
+    return new Promise(res => setTimeout(res, ms));
+}
+
+function createResolvable () {
+    return new Promise(onResolvableCreated => {
+        const promise = new Promise(resolve => onResolvableCreated({
+            get promise () {
+                return promise;
+            }, resolve, }));
+    });
 }
 
 const { isInteger, } = Number;
@@ -32,48 +39,30 @@ function createIntegerRange (from, to) {
     throw new Error('"createIntegerRange" got unexpected input as parameters. Expected (from: int, to: int)');
 }
 
-function createKeySelector (key) {
-    return function keySelector (val) {
-        if (val) {
-            return val[key];
-        }
-    };
-}
-
-function createPropertySelector (keys) {
-    return function propertySelector (val) {
-        if (val) {
-            keys.reduce((acc, k) => {
-                acc[k] = val[k];
-                return acc;
-            }, {});
-        }
-    };
-}
-
-function createDistinctHistoryComparator (keys) {
+function createDistinctByFilter (keys) {
     if (!keys.length) {
-        console.error(keys);
-        throw new Error('Invalid parameter passed to historyComparator');
+        console.error(keys); throw new Error('Invalid parameter passed to historyComparator');
     }
     const tail = keys.pop();
-    return function distinctHistoryComparator (val, history) {
+    const history = {};
+    return function distinctByFilter (val) {
+        let subHistory = history;
         let isDistinct = false;
         val = val || {};
         for (let i = 0; i<keys.length; i++) {
             const value = val[keys[i]];
-            if (value in history) {
-                history = history[value];
+            if (subHistory[value]) {
+                subHistory = subHistory[value];
             } else {
-                history = history[value] = {};
+                subHistory = subHistory[value] = {};
                 if (!isDistinct) {
                     isDistinct = true;
                 }
             }
         }
         const value = val[tail];
-        if (!(value in history)) {
-            history[value] = true;
+        if (!(value in subHistory)) {
+            subHistory[value] = true;
             if (!isDistinct) {
                 isDistinct = true;
             }
@@ -92,11 +81,6 @@ function createSet (keys) {
         acc[key] = true;
         return acc;
     }, {});
-}
-
-function entriesToObject (acc, e) {
-    acc[e[0]] = e[1];
-    return acc;
 }
 
 function orderComparator (a, b) {
@@ -120,21 +104,23 @@ function defaultComparator (a, b) {
     return 1;
 }
 
-function createGrouper (keys) {
+function createGroupByReducer (keys) {
     const tail = keys.pop();
     return function nestedGrouper (acc, val) {
         val = val || {};
+        let subAcc = acc;
         for (const k of keys) {
             const subVal = val[k];
-            if (!acc[subVal]) {
-                acc[subVal] = {};
+            if (!subAcc[subVal]) {
+                subAcc[subVal] = {};
             }
-            acc = acc[subVal];
+            subAcc = subAcc[subVal];
         }
-        if (!acc[val[tail]]) {
-            acc[val[tail]] = [];
+        if (!subAcc[val[tail]]) {
+            subAcc[val[tail]] = [];
         }
-        acc[val[tail]].push(val);
+        subAcc[val[tail]].push(val);
+        return acc;
     };
 }
 
@@ -165,22 +151,262 @@ function createObjectComparator (obj) {
     };
 }
 
+function arrayReducer (acc = [], val) {
+    acc.push(val);
+    return acc;
+}
+
+function createWhereFilter (obj) {
+    const entries = Object.entries(obj);
+    return function whereFilterer (val) {
+        for (const e of entries) {
+            if (val[e[0]] !== e[1]) {
+                return;
+            }
+        }
+        return true;
+    };
+}
+
+function createSkipFilter (count) {
+    let current = 0;
+    return function skipFilter () {
+        if (count>current) {
+            current++;
+            return false;
+        }
+        return true;
+    };
+}
+
+function createMinReducer (comparator) {
+    return function minReducer (acc = NOT_SET, val, keep) {
+        if (acc===NOT_SET || comparator(acc, val, keep) > 0) {
+            return val;
+        }
+        return acc;
+    };
+}
+function createMaxReducer (comparator) {
+    return function maxReducer (acc = NOT_SET, val, keep) {
+        if (acc===NOT_SET || comparator(acc, val, keep) < 0) {
+            return val;
+        }
+        return acc;
+    };
+}
+
+function createCustomReducer (callback) {
+    return function reducer (acc, val, keep) {
+        return callback(acc, val, keep);
+    };
+}
+function createSumReducer () {
+    return function sumReducer (acc, val) {
+        acc +=val;
+        return acc;
+    };
+}
+function createPickMapper (keys) {
+    return function pickMapper (val) {
+        if (typeof val === 'string') {
+            return keys.reduce((subStr, k) => subStr + val[k], '');
+        } else if (Array.isArray(val)) {
+            return keys.reduce((acc, i) => {
+                acc.push(val[i]);
+                return acc;
+            }, []);
+        } else {
+            return keys.reduce((acc, k) => {
+                acc[k] = val[k];
+                return acc;
+            }, {});
+        }
+    };
+}
+
+function createOmitMapper (keys) {
+    const omit = createSet(keys);
+    return function omitMapper (val) {
+        if (typeof val === 'string') {
+            let acc = '';
+            for (let i = 0; i<val.length; i++) {
+                const k = omit.has(val[i]);
+                if (!omit[k]) {
+                    acc+=val[k];
+                }
+            }
+            return acc;
+        } else if (Array.isArray(val)) {
+            const acc = [];
+            for (let i = 0; i<val.length; i++) {
+                if (!omit[i]) {
+                    acc.push(val[i]);
+                }
+            }
+            return acc;
+        } else {
+            const acc = { ...val, };
+            for (const k in acc) {
+                if (omit[k]) {
+                    delete acc[k];
+                }
+            }
+            return acc;
+        }
+    };
+}
+
+function createDistinctFilter () {
+    let history = {};
+    return function distinctFilter (val) {
+        if (!history[val]) {
+            history[val] = true;
+            return true;
+        }
+        return false;
+    };
+}
+
+function createNegatePredicate (predicate) {
+    return function negatePredicate (val, keep) {
+        return !predicate(val, keep);
+    };
+}
+
+function createScanMapper (callback, acc) {
+    return function scanMapper (val, keep) {
+        return acc = callback(acc, val, keep);
+    };
+}
+
+function createTakeLimiter (limit) {
+    let current = 0;
+    return function takeLimiter () {
+        current++;
+        if (current === limit) {
+            return true;
+        } else if (current>limit) {
+            throw new Error('"current" should never exceed limit');
+        }
+        return false;
+    };
+}
+
+function createEveryEndResolver (predicate) {
+    return {
+        defaultValue: true,
+        callback (val, keep) {
+            console.log(val);
+            const value = !!predicate(val, keep);
+            console.log({ value, });
+            return {
+                done: !value,
+                value,
+                keep,
+            };
+        },
+    };
+}
+
+function createFirstEndResolver () {
+    return {
+        defaultValue: true,
+        callback (val, keep) {
+            return {
+                value: false,
+                keep,
+                done: true,
+            };
+        },
+    };
+}
+
+function createSomeEndResolver (predicate) {
+    return {
+        defaultValue: false,
+        callback (val, keep) {
+            if (predicate(val, keep)) {
+                return {
+                    value: true,
+                    keep,
+                    done: true,
+                };
+            } else {
+                return {
+                    done: false,
+                    value: false,
+                };
+            }
+        },
+    };
+}
+
+function createSkipWhileFilter (predicate) {
+    let open = false;
+    return function skipWhileFilterer (val, keep) {
+        if (!open) {
+            open = !predicate(val, keep);
+            return open;
+        } else return true;
+    };
+}
+function createTakeWhileFilterResolver (predicate) {
+    return function takeWhileFilterResolver (val, keep) {
+        return predicate(val, keep);
+    };
+}
+function createTakeUntilFilterResolver (predicate) {
+    let open = true;
+    return function takeWhileFilterResolver (val, keep) {
+        if (open) {
+            open = !predicate(val, keep);
+            return open;
+        }
+        return false;
+    };
+}
+function createGeneratorFromIterator (createIterator = Object.values) {
+    return function * iterableGenerator (val, keep) {
+        const arr = createIterator(val, keep);
+        for (let i = 0; i<arr.length; i++) {
+            yield arr[i];
+        }
+    };
+}
 module.exports = {
     NOT_SET,
     defaultFilter,
-    createPropertyFilter,
-    createDistinctHistoryComparator,
+    createDistinctByFilter,
     identity,
-    createSet,
-    entriesToObject,
     orderComparator,
     defaultComparator,
     createObjectComparator,
     comparatorError,
-    createGrouper,
-    createKeySelector,
-    createPropertySelector,
+    createGroupByReducer,
     createIntegerRange,
     ASC,
     DESC,
+    createResolvable,
+    arrayReducer,
+    createCustomReducer,
+    createMaxReducer,
+    createWhereFilter,
+    createSkipFilter,
+    createMinReducer,
+    createPickMapper,
+    createOmitMapper,
+    createDistinctFilter,
+    createNegatePredicate,
+    createSumReducer,
+    createScanMapper,
+    createTakeLimiter,
+    createFirstEndResolver,
+    createSomeEndResolver,
+    createEveryEndResolver,
+    createSkipWhileFilter,
+    createTakeWhileFilterResolver,
+    createTakeUntilFilterResolver,
+    createGeneratorFromIterator,
+    sleep
 };
