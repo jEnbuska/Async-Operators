@@ -23,7 +23,7 @@ const stores = await parallel()
     .await()
     .filter(store => store.location)
     .map(toCamelCase)
-    .toArray()
+    .reduce((acc, next) => [...acc, next], [])
     .resolve(await fetch(`${API_URL}/stores`));
 ```
 #####generator example
@@ -40,7 +40,7 @@ const storesWithLocations = await generator(function * fetchAndEmitStores(){
     .await()
     .filter(store => store.location)
     .map(toCamelCase)
-    .toArray()
+    .reduce((acc, next) => [...acc, next], [])
     .resolve();
 ```
 ## Stream resolvers:
@@ -54,7 +54,7 @@ Calling resolver return a promise that return the result of the stream.
 
 ## Reducing operators:
 ```
-.toArray()
+.reduce((acc, next) => [...acc, next], [])
 .reduce(callback, acc)
 .groupBy(...strings)
 .toObject(string | callback)

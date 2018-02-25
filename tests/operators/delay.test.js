@@ -15,7 +15,7 @@ describe('delay operator', () => {
             .delay(10)
             .forEach(delayName => intermediate.push(delayName))
             .takeUntil(it => it==='delay_2')
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(intermediate).toEqual([ 'delay_1', 'delay_2', ]);
         expect(results).toEqual([ 'delay_1', ]);

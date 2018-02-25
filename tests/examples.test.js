@@ -9,7 +9,7 @@ describe('examples', async () => {
             .distinct()
             .map(it => it*2)
             .filter(it => it !== 8)
-            .toArray();
+            .reduce((acc, next) => [ ...acc, next, ], []);
         const result = await pipe.resolve(5, 4, 3, 2, 1, 2, 3, 4, 5);
         expect(result).toEqual([ 2, 4, 6, 10, ]);
         const result2 = await pipe.resolve(4, 3, 2, 1);
@@ -22,14 +22,14 @@ describe('examples', async () => {
             .take(2); // stops all downstreams operations when limit is hit
 
         const names = await  pipe
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve({ firstname: 'John', lastname: 'Doe', });
 
         expect(names).toEqual([ 'John', 'Doe', ]);
 
         const firstTwoNumbers = await pipe
             .forEach(it => console.log(it))
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve([ 1, ],  [ 2, 3, ], [ 4, 5, 6, ]);
         expect(firstTwoNumbers).toEqual([ 1, 2, ]);
     });
@@ -42,7 +42,7 @@ describe('examples', async () => {
             .parallel()
             .await() // [ 1, 2 ], [ 1, 2 ] [ 2, 4 ] [ 6, 18 ]
             .flatten()// 1, 2, 1, 2, 2, 4, 6, 18
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(sleepAndReturn(100, [ 1, 2, ]), sleepAndReturn(50, [ 8, 1, ]));
         expect(result).toEqual([ 1, 2, 1, 2, 2, 4, 8, 16, ]);
     });

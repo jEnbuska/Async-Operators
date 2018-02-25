@@ -7,7 +7,7 @@ describe('operator scan', () => {
         const result = await parallel()
             .await()
             .scan((acc, next) => Object.assign(acc, { [next]: true, }), {}) // Wrong way of doing things
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(sleepAndReturn(30, 30), sleepAndReturn(20, 20));
         expect(result).toEqual([ { 30: true, 20: true, }, { 30: true, 20: true, }, ]);
     });
@@ -17,7 +17,7 @@ describe('operator scan', () => {
             .await()
             .ordered()
             .scan((acc, next) => ({ ...acc, [next]: true, }), {})
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(sleepAndReturn(30, 30), sleepAndReturn(20, 20));
         expect(result2).toEqual([ { 30: true, }, { 30: true, 20: true, }, ]);
     });
@@ -26,7 +26,7 @@ describe('operator scan', () => {
         const result = await parallel()
             .await()
             .scan((acc, next) => ({ ...acc, [next]: true, }), {})
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(sleepAndReturn(30, 30), sleepAndReturn(20, 20));
         expect(result).toEqual([ { 20: true, }, { 30: true, 20: true, }, ]);
     });
@@ -36,7 +36,7 @@ describe('operator scan', () => {
             .await()
             .scan((acc, next) => ({ ...acc, [next]: true, }), {})
             .take(5)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(
                 sleepAndReturn(30, 1), // 4
                 sleepAndReturn(30, 2), // 5

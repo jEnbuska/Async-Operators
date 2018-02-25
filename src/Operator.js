@@ -123,14 +123,6 @@ class Operator {
         return this._create({ operator: reduce, name: 'groupBy', params: { createReducer, }, });
     }
 
-    toArray () {
-        const createReducer= () => ({
-            reduce: arrayReducer,
-            defaultValue: [],
-        });
-        return this._create({ operator: reduce, name: 'toArray', params: { createReducer, }, });
-    }
-
     sum () {
         const createReducer = () => ({
             reduce: createSumReducer(),

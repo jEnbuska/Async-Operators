@@ -15,7 +15,7 @@ describe('operator map', () => {
             yield await sleepAndReturn(10, 10);
             yield await sleepAndReturn(20, 20);
         }).map(it => it*2)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(result).toEqual([ 10, 20, 40, ]);
     });

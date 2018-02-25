@@ -1,5 +1,4 @@
 import { parallel, generator, } from '../../';
-import { sleepAndReturn, } from '../common';
 
 describe('parallel tests', () => {
 
@@ -24,7 +23,7 @@ describe('parallel tests', () => {
             .delay(5)
             .forEach(toBeResolved => executionOrder.push({ toBeResolved, }))
             .forEach(() => --concurrent)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(concurrentMax).toBe(3);
         expect(result).toEqual([ 0, 1, 2, 3, 4, 5, 6, ]);
@@ -36,7 +35,7 @@ describe('parallel tests', () => {
             .forEach(before => executionOrder.push({ before, }))
             .delay(int => int*2+5)
             .forEach(after => executionOrder.push({ after, }))
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(0, 1, 2, 3, 4, 5, 6);
         expect(result).toEqual([ 0, 1, 2, 3, 4, 5, 6, ]);
         expect(executionOrder).toEqual([
@@ -73,11 +72,11 @@ describe('parallel tests', () => {
         const result = await parallel(2)
             .flatten()
             .parallel(2)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .flatten()
             .parallel(2)
             .map(it => it*2)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(...tasks);
         console.log(Date.now()-before);
         expect(result.length).toBe(1000);
@@ -105,7 +104,7 @@ describe('parallel tests', () => {
             })
             .delay(5)
             .forEach(() => lower--)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve([ 0, 1, 2, ], [ 3, 4, 5, ], [ 6, 7, 8, ]);
         expect(result.sort()).toEqual([ 0, 1, 2, 3, 4, 5, 6, 7, 8, ]);
         expect(lowerMax).toBe(2);

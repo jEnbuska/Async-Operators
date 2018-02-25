@@ -5,7 +5,7 @@ describe('operator generator', () => {
 
     test('generator as middleware', async() => {
         const result = await parallel()
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .generator(async function*(val) {
                 const out = val.reduce((sum, it) => sum+it, 0);
                 yield await sleepAndReturn(20, out);
@@ -20,7 +20,7 @@ describe('operator generator', () => {
                 yield await sleepAndReturn(20, 20);
                 yield await sleepAndReturn(30, 30);
             })
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(result).toEqual([ 20, 30, ]);
     });
@@ -30,13 +30,13 @@ describe('operator generator', () => {
             yield await sleepAndReturn(20, 20);
             yield await sleepAndReturn(30, 30);
         })
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .forEach(it => expect(it).toEqual([ 20, 30, ]))
             .generator(async function*(val) {
                 yield await sleepAndReturn(10, [ ...val, 10, ]);
                 yield await sleepAndReturn(20, [ 20, ...val, ]);
             })
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(result).toEqual([ [ 20, 30, 10, ], [ 20, 20, 30, ], ]);
     });
@@ -66,7 +66,7 @@ describe('operator generator', () => {
                     yield i;
             })
             .ordered()
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(1, 2, 3, 4);
         expect(result).toEqual([
             0,
@@ -119,7 +119,7 @@ describe('operator generator', () => {
             return [ 1, 2, 3, ];
         })
             .flatten()
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(result).toEqual([ 1, 2, 3, ]);
     });
@@ -130,7 +130,7 @@ describe('operator generator', () => {
             return await sleepAndReturn(20, [ 1, 2, 3, ]);
         })
             .flatten()
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(result).toEqual([ 1, 2, 3, ]);
     });
@@ -147,7 +147,7 @@ describe('operator generator', () => {
             .map((it) => sleepAndReturn(it+5, it))
             .await()
             .forEach(after => executionOrder.push({ after, }))
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
 
         expect(result).toEqual([ 0, 1, 2, 3, 4, 5, 6, ]);
@@ -203,9 +203,9 @@ describe('operator generator', () => {
                 maxUp--;
                 maxDown--;
             })
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
-        const sortedResult =await parallel().flatten().sort().toArray().resolve(result);
+        const sortedResult =await parallel().flatten().sort().reduce((acc, next) => [ ...acc, next, ], []).resolve(result);
         expect(sortedResult ).toEqual([ 0, 1, 2, 3, 4, 5, 6, 7, 8, ]);
         expect(invalidParallelCountDown).toBeFalsy();
         expect(invalidParallelCountUp).toBeFalsy();

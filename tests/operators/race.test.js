@@ -15,7 +15,7 @@ describe('race', () => {
         })
             .forEach(int => intermediate.push(int))
             .takeUntil(it => it===2)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(intermediate).toEqual([ 1, 2, ]);
         expect(results).toEqual([ 1, ]);
@@ -34,7 +34,7 @@ describe('race', () => {
             .await()
             .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(intermediate).toEqual([ 10, 20, ]);
         expect(results).toEqual([ 10, ]);
@@ -54,7 +54,7 @@ describe('race', () => {
             .await()
             .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(intermediate).toEqual([ 10, 20, ]);
         expect(results).toEqual([ 10, ]);
@@ -74,7 +74,7 @@ describe('race', () => {
             .await()
             .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(intermediate).toEqual([ 10, 20, ]);
         expect(results).toEqual([ 10, ]);
@@ -94,7 +94,7 @@ describe('race', () => {
             .await()
             .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(intermediate).toEqual([ 10, 20, ]);
         expect(results).toEqual([ 10, ]);
@@ -114,7 +114,7 @@ describe('race', () => {
             .await()
             .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(intermediate).toEqual([ 10, 20, ]);
         expect(results).toEqual([ 10, ]);
@@ -133,7 +133,7 @@ describe('race', () => {
             .await()
             .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve();
         expect(intermediate).toEqual([ 10, 20, ]);
         expect(results).toEqual([ 10, ]);

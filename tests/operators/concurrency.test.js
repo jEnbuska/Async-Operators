@@ -7,7 +7,7 @@ describe('concurrency operators ', () => {
         const results = await parallel()
             .await()
             .ordered()
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(sleepAndReturn(10, 10), sleepAndReturn(5, 5));
         expect(results).toEqual([ 10, 5, ]);
     });
@@ -16,15 +16,15 @@ describe('concurrency operators ', () => {
         const results = await parallel()
             .await()
             .ordered()
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(10, 5);
         expect(results).toEqual([ 10, 5, ]);
-    })
+    });
 
     test('parallel await', async() => {
         const results = await parallel()
             .await()
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(sleepAndReturn(10, 10), sleepAndReturn(5, 5));
         expect(results).toEqual([ 5, 10, ]);
     });
@@ -35,7 +35,7 @@ describe('concurrency operators ', () => {
             .map(it => sleepAndReturn(it, it))
             .await()
             .takeUntil(it => it === 10)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(sleepAndReturn(10, 10), sleepAndReturn(5, 5), sleepAndReturn(20, 20));
         expect(results).toEqual([ 5, ]);
     });
@@ -44,7 +44,7 @@ describe('concurrency operators ', () => {
         const results = await parallel(3)
             .map(it => it())
             .await()
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(
                 () => sleepAndReturn(0, 0), () => sleepAndReturn(100, 100), () => sleepAndReturn(25, 25),
                 () => sleepAndReturn(75, 75), () => sleepAndReturn(25, 25), () => sleepAndReturn(150, 150));
@@ -60,7 +60,7 @@ describe('concurrency operators ', () => {
         const results = await parallel()
             .await()
             .ordered()
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(sleepAndReturn(10, 10), sleepAndReturn(5, 5));
         expect(results).toEqual([ 10, 5, ]);
     });

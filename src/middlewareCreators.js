@@ -324,11 +324,11 @@ function reduce ({ name, middlewareIndex, params: { createReducer, }, }) {
                 const { reduce, defaultValue, } = createReducer();
                 let acc = defaultValue;
                 return {
-                    onComplete: function completeToArray () {
+                    onComplete: function complet.reduce((acc, next) => [...acc, next], []) () {
                         if (isActive()) onNext(acc, {}, [ 0, ]);
                         return onComplete();
                     },
-                    onNext: function invokeToArray (val, keep, order) {
+                    onNext: function invok.reduce((acc, next) => [...acc, next], []) (val, keep, order) {
                         if (isActive()) {
                             return acc = reduce(acc, val, keep);
                         }

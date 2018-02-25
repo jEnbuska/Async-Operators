@@ -8,7 +8,7 @@ describe('operator keep', () => {
             .flatten()
             .filter(person => person.age< 30)
             .map((it, { length, }) => ({ ...it, length, }))
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve([ { name: 'John', age: 20, }, { name: 'Lisa', age: 30, }, { name: 'John', age: 25, }, ]);
         expect(result).toEqual([
             { name: 'John', age: 20, length: 3, },
@@ -22,7 +22,7 @@ describe('operator keep', () => {
             .flatten()
             .filter(person => person.age< 30)
             .map((it, { length, }) => ({ ...it, length, }))
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve([ { name: 'John', age: 20, }, { name: 'Lisa', age: 30, }, { name: 'John', age: 25, }, ]);
         expect(result).toEqual([
             { name: 'John', age: 20, length: 3, },

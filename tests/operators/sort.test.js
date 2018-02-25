@@ -5,7 +5,7 @@ describe('operator sort', () => {
     test('sort without comparator', async() => {
         const result = await parallel()
             .sort()
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(3, 1, 2);
         expect(result).toEqual([ 1, 2, 3, ]);
     });
@@ -13,7 +13,7 @@ describe('operator sort', () => {
     test('sort with comparator function', async() => {
         const result = await parallel()
             .sort((a, b) => a<b ? 1: -1)
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(3, 1, 2);
         expect(result).toEqual([ 3, 2, 1, ]);
     });
@@ -21,7 +21,7 @@ describe('operator sort', () => {
     test('sortBy multiple secondary object ASC comparisons', async() => {
         const result = await parallel()
             .sortBy({ age: 'ASC', income: 'ASC', gender: 'ASC', })
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(
                 { name: 'John', age: 25, gender: 1, income: 3000, },
                 { name: 'Jane', age: 30, gender: 0, income: 3700, },
@@ -43,7 +43,7 @@ describe('operator sort', () => {
     test('sortBy multiple secondary object DESC comparisons', async() => {
         const result = await parallel()
             .sortBy({ age: 'DESC', income: 'DESC', gender: 'DESC', })
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(
                 { name: 'John', age: 25, gender: 1, income: 3000, },
                 { name: 'Jane', age: 30, gender: 0, income: 3700, },

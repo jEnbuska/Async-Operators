@@ -12,7 +12,13 @@
     "type": "git",
     "url": "https://github.com/jEnbuska/Async-Operators"
   },
-  "keywords": ["async","stream","rxjs", "parallel", "rx"],
+  "keywords": [
+    "async",
+    "stream",
+    "rxjs",
+    "parallel",
+    "rx"
+  ],
   "scripts": {
     "lint-fix": "eslint --ext .jsx --ext .js . --fix",
     "test": "jest",

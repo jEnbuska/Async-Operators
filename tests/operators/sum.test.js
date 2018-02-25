@@ -19,7 +19,7 @@ describe('operator sum', () => {
                 }
                 return all;
             })
-            .toArray()
+            .reduce((acc, next) => [ ...acc, next, ], [])
             .resolve(3, 1, -2);
         expect(result).toEqual([ 0, 1, 2, ]);
     });
