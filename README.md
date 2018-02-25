@@ -11,7 +11,7 @@ familiar functions like 'map', 'filter', 'reduce' etc..
 
 ## Stream initializers:
 ```
-const { parallel, generator } = require('lazy_operators');
+const { parallel, generator } = require('async_operators');
 await parallel(?number)... // parameter is limit of parallel executions. Defalts to unlimited
 await generator(generatorFunc | asyncGeneratorFunc)... // example below
 ```
