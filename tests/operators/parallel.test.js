@@ -1,4 +1,4 @@
-import { parallel, generator, } from '../../';
+import { provider, } from '../../';
 
 describe('parallel tests', () => {
 
@@ -6,10 +6,12 @@ describe('parallel tests', () => {
         const executionOrder = [];
         let concurrent = 0;
         let concurrentMax = 0;
-        const result = await generator(function*() {
-            for (let i = 0; i<7; i++) {
-                yield i;
-            }
+        const result = await provider({
+            * generator () {
+                for (let i = 0; i<7; i++) {
+                    yield i;
+                }
+            },
         })
             .forEach(unControlled => executionOrder.push({ unControlled, }))
             .parallel(3)
@@ -24,19 +26,20 @@ describe('parallel tests', () => {
             .forEach(toBeResolved => executionOrder.push({ toBeResolved, }))
             .forEach(() => --concurrent)
             .reduce((acc, next) => [ ...acc, next, ], [])
-            .resolve();
+            .pull();
         expect(concurrentMax).toBe(3);
         expect(result).toEqual([ 0, 1, 2, 3, 4, 5, 6, ]);
     });
 
     test('parallel as source', async() => {
         const executionOrder = [];
-        const result = await parallel(3)
+        const result = await provider({ flatten: [ 0, 1, 2, 3, 4, 5, 6, ], })
+            .parallel(3)
             .forEach(before => executionOrder.push({ before, }))
             .delay(int => int*2+5)
             .forEach(after => executionOrder.push({ after, }))
             .reduce((acc, next) => [ ...acc, next, ], [])
-            .resolve(0, 1, 2, 3, 4, 5, 6);
+            .pull();
         expect(result).toEqual([ 0, 1, 2, 3, 4, 5, 6, ]);
         expect(executionOrder).toEqual([
             { before: 0, },
@@ -68,8 +71,9 @@ describe('parallel tests', () => {
             }
             current.push(i);
         }
-        const before = Date.now();
-        const result = await parallel(2)
+        const result = await provider({
+            flatten: tasks,
+        }).parallel(2)
             .flatten()
             .parallel(2)
             .reduce((acc, next) => [ ...acc, next, ], [])
@@ -77,8 +81,7 @@ describe('parallel tests', () => {
             .parallel(2)
             .map(it => it*2)
             .reduce((acc, next) => [ ...acc, next, ], [])
-            .resolve(...tasks);
-        console.log(Date.now()-before);
+            .pull();
         expect(result.length).toBe(1000);
     });
 
@@ -87,7 +90,9 @@ describe('parallel tests', () => {
         let lower = 0;
         let lowerMax = 0;
         let upperMax = 0;
-        const result = await parallel(2)
+        const result = await provider({
+            flatten: [ [ 0, 1, 2, ], [ 3, 4, 5, ], [ 6, 7, 8, ], ],
+        }).parallel(2)
             .forEach(() => upper+=3)
             .forEach(() => {
                 if (upperMax<upper) {
@@ -105,7 +110,7 @@ describe('parallel tests', () => {
             .delay(5)
             .forEach(() => lower--)
             .reduce((acc, next) => [ ...acc, next, ], [])
-            .resolve([ 0, 1, 2, ], [ 3, 4, 5, ], [ 6, 7, 8, ]);
+            .pull();
         expect(result.sort()).toEqual([ 0, 1, 2, 3, 4, 5, 6, 7, 8, ]);
         expect(lowerMax).toBe(2);
         expect(upperMax).toBe(6);

@@ -1,23 +1,30 @@
 const Operator = require('./src/Operator');
-const { ASC, DESC, }= require('./src/utils');
+const { provider: createProvider, } = require('./src/middlewareCreators');
+const { createGeneratorFromIterator, createIntegerRange, ASC, DESC, }= require('./src/utils');
 
-function parallel (limit) {
-    return new Operator().parallel(limit);
-}
-function generator (producer) {
-    return new Operator().generator(producer, true);
+function provider (param = {}) {
+    const { function: func, future, generator, value, flatten, range, } = param;
+    if (generator) {
+        return new Operator([ createProvider({ callback: generator, params: { type: 'generator', }, }), ]);
+    } else if (future) {
+        return new Operator([ createProvider({ callback: future, params: { type: 'async', }, }), ]);
+    } else if (func) {
+        return new Operator([ createProvider({ callback: func, params: { type: 'func', }, }), ]);
+    } else if (param.hasOwnProperty('value')) {
+        return new Operator([ createProvider({ callback: () => value, params: { type: 'func', }, }), ]);
+    } else if (flatten) {
+        const callback = () => createGeneratorFromIterator()(flatten);
+        return new Operator([ createProvider({ callback, params: { type: 'generator', }, }), ]);
+    } else if (range) {
+        const intRange = createIntegerRange(range.from, range.to);
+        const callback = () => createGeneratorFromIterator()(intRange);
+        return new Operator([ createProvider({ callback, params: { type: 'generator', }, }), ]);
+    }
+    throw new Error('Provider Expect to receive an object with key "function", "value", "generator" or "flatten"');
 }
 
 module.exports = {
-    parallel,
-    generator,
-    ordered: () => {
-        throw new Error('"ordered" async_operator initializer is no longer supported. Do parallel().ordered().. to achieve the same result');
-    },
-    from: (param) => {
-        console.warn('"from" async operator is deprecated, use "generator" instead');
-        return generator(param);
-    },
+    provider,
     ASC,
     DESC,
 };

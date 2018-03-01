@@ -24,8 +24,7 @@ const { createFirstEndResolver,
     defaultFilter,
     defaultComparator,
     createGroupByReducer,
-    createGeneratorFromIterator,
-    createIntegerRange,  } = require('./utils');
+    createGeneratorFromIterator, } = require('./utils');
 /* eslint-disable consistent-return */
 
 const { $default, $await, generator, filter, parallel, map, ordered, postLimiter, preLimiter, reduce, endResolver, delay, forEach, } = require('./middlewareCreators');
@@ -35,42 +34,27 @@ class Operator {
     constructor (middlewares = []) {
         this.middlewares = middlewares;
     }
-
-    range (from, to) {
-        const integerRange = createIntegerRange(from, to);
-        return this.resolve(...integerRange);
-    }
-
-    async resolve (...sources) {
-        let output = undefined;
+    async pull (..._) {
+        if (_.length) {
+            throw new Error('"pull" should be called without parameters.');
+        }
+        let err;
+        let value;
+        const done = new And(() => !err);
         let rootResolver  = {
             ...await createRace(),
+            catcher ({ err, middleware, index, value, }) {
+                err = error;
+            },
             onValueResolved () {},
+            downStream: done,
             async onComplete () {},
             onNext (val) {
-                output = val;
+                value = val;
             },
         };
-        const { isActive, onNext, onComplete, } = await this._createMiddlewares(rootResolver);
-        const promises = [];
-        for (let i = 0; i<sources.length && isActive(); i++) promises.push(onNext(sources[i], [ i, ]));
-        // await Promise.all(promises);
-        return onComplete().then(() => output);
-    }
-
-    async consume (..._) {
-        if (_.length) {
-            throw new Error('consume should be called without parameters.');
-        }
-        let rootResolver  = {
-            ...await createRace(),
-            onValueResolved () {},
-            downStream: new And(),
-            async onComplete () {},
-            onNext () {},
-        };
         const { onComplete, } = await this._createMiddlewares(rootResolver);
-        return onComplete();
+        return onComplete().then(() => value);
     }
 
     async _createMiddlewares (rootResolver) {

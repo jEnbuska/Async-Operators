@@ -1,6 +1,49 @@
 /* eslint-disable consistent-return */
 const { createResolvable, sleep, } = require('./utils');
 
+function provider ({ middlewareIndex = 0, name='provider', callback, params: { type, }, }) {
+    return function createSourceUpStream () {
+        return {
+            createDownStream: function createSourceDownStream ({ isActive, onNext, race, catcher, onComplete, }) {
+                return {
+                    async onComplete () {
+                        let promise;
+                        if (type === 'generator') {
+                            let generator = await callback();
+                            let result = {};
+                            let i = 0;
+                            const promises = [];
+                            while (true) {
+                                result = await race(generator.next(result.value));
+                                if (result) {
+                                    if (isActive()) {
+                                        if (!result.done) {
+                                            promises.push(onNext(result.value, [ i++, ]));
+                                            if (isActive()) continue;
+                                        }
+                                    }
+                                }
+                                promise = Promise.all(promises);
+                                break;
+                            }
+                        } else if (type === 'async') {
+                            const value = await callback();
+                            promise = onNext(value, [ 0, ]);
+                        } else {
+                            promise = onNext(callback(), [ 0, ]);
+                        }
+                        if (promise) {
+                            return promise.then(onComplete);
+                        } else {
+                            return onComplete();
+                        }
+                    },
+                };
+            },
+        };
+    };
+}
+
 function filter ({ middlewareIndex, name = 'filter', params: { createFilter, }, }) {
     return function createFilterUpStream () {
         return {
@@ -367,4 +410,5 @@ module.exports = {
     filter,
     ordered,
     endResolver,
+    provider,
 };

@@ -1,34 +1,36 @@
-import { parallel, generator, } from '../../';
+import { provider, } from '../../';
 import { sleepAndReturn, sleep, } from '../common';
 
 describe('operator generator', () => {
 
     test('generator as middleware', async() => {
-        const result = await parallel()
+        const result = await provider({ flatten: [ 3, 1, 2, ], })
             .reduce((acc, next) => [ ...acc, next, ], [])
             .generator(async function*(val) {
                 const out = val.reduce((sum, it) => sum+it, 0);
                 yield await sleepAndReturn(20, out);
             })
-            .resolve(3, 1, 2);
+            .pull();
         expect(result).toEqual(6);
     });
 
     test('simple resolve from generator', async() => {
-        const result = await generator(
-            async function* () {
+        const result = await provider({
+            async * generator () {
                 yield await sleepAndReturn(20, 20);
                 yield await sleepAndReturn(30, 30);
-            })
+            }, })
             .reduce((acc, next) => [ ...acc, next, ], [])
-            .resolve();
+            .pull();
         expect(result).toEqual([ 20, 30, ]);
     });
 
     test('generator misc', async() => {
-        const result = await generator(async function*() {
-            yield await sleepAndReturn(20, 20);
-            yield await sleepAndReturn(30, 30);
+        const result = await provider({
+            async * generator () {
+                yield await sleepAndReturn(20, 20);
+                yield await sleepAndReturn(30, 30);
+            },
         })
             .reduce((acc, next) => [ ...acc, next, ], [])
             .forEach(it => expect(it).toEqual([ 20, 30, ]))
@@ -37,37 +39,39 @@ describe('operator generator', () => {
                 yield await sleepAndReturn(20, [ 20, ...val, ]);
             })
             .reduce((acc, next) => [ ...acc, next, ], [])
-            .resolve();
+            .pull();
         expect(result).toEqual([ [ 20, 30, 10, ], [ 20, 20, 30, ], ]);
     });
 
     test('generator before takeUntil', async() => {
         const tries = [];
         const passes = [];
-        await generator(async function* () {
-            yield await sleepAndReturn(20, 20);
-            yield await sleepAndReturn(10, 10);
-            yield await sleepAndReturn(0, 0);
-            yield await sleepAndReturn(30, 30);
-            yield await sleepAndReturn(40, 40);
+        await provider({
+            async *generator () {
+                yield await sleepAndReturn(20, 20);
+                yield await sleepAndReturn(10, 10);
+                yield await sleepAndReturn(0, 0);
+                yield await sleepAndReturn(30, 30);
+                yield await sleepAndReturn(40, 40);
+            },
         })
             .forEach(it => tries.push(it))
             .takeWhile(it => it !== 0)
             .forEach(it => passes.push(it))
-            .consume();
+            .pull();
         expect(tries).toEqual([ 20, 10, 0, ]);
         expect(passes).toEqual([ 20, 10, ]);
     });
 
     test('use same generator producer multiple times', async() => {
-        const result = await parallel()
+        const result = await provider({ flatten: [ 1, 2, 3, 4, ], })
             .generator(async function*(value) {
                 for (let i = 0; i<value; i++)
                     yield i;
             })
             .ordered()
             .reduce((acc, next) => [ ...acc, next, ], [])
-            .resolve(1, 2, 3, 4);
+            .pull();
         expect(result).toEqual([
             0,
             0, 1,
@@ -78,9 +82,10 @@ describe('operator generator', () => {
 
     test('generator as producer and flattener', async() => {
         const results = [];
-        await generator(async function*() {
-            yield 10;
-        })
+        await provider({
+            async * generator () {
+                yield 10;
+            }, })
             .map(async (ten) =>  [ ten, 0, await sleepAndReturn(20, 20), ])
             .await()
             .generator(async function*(value) {
@@ -90,57 +95,62 @@ describe('operator generator', () => {
             })
             .await()
             .forEach(it => results.push(it))
-            .consume();
+            .pull();
         expect(results).toEqual([ 0, 10,  20, ]);
     });
 
     test('generator race should resolve before sleep', async() => {
         const results = [];
         const before = Date.now();
-        await generator(async function*() {
-            yield 1;
-            yield 2;
-            yield await sleepAndReturn(1000, 3);
+        await provider({
+            async * generator () {
+                yield 1;
+                yield 2;
+                yield await sleepAndReturn(1000, 3);
+            },
         })
         .forEach(it => console.log(it))
-        .takeUntil(it => {
-            console.log(it);
-            return it===2;
-        })
+        .takeUntil(it => it===2)
         .forEach(it => results.push(it))
-        .consume();
+        .pull();
         expect((Date.now() - before)<500).toBe(true);
         expect(results).toEqual([ 1, ]);
     });
 
     test('generator with normal function should not cause error', async() => {
 
-        const result = await generator(function () {
-            return [ 1, 2, 3, ];
+        const result = await provider({
+            function () {
+                return [ 1, 2, 3, ];
+            },
         })
             .flatten()
             .reduce((acc, next) => [ ...acc, next, ], [])
-            .resolve();
+            .pull();
         expect(result).toEqual([ 1, 2, 3, ]);
     });
 
     test('generator with async function asyncfunction should not cause error', async() => {
 
-        const result = await generator(async function () {
-            return await sleepAndReturn(20, [ 1, 2, 3, ]);
+        const result = await provider({
+            async future () {
+                return await sleepAndReturn(20, [ 1, 2, 3, ]);
+            },
         })
             .flatten()
             .reduce((acc, next) => [ ...acc, next, ], [])
-            .resolve();
+            .pull();
         expect(result).toEqual([ 1, 2, 3, ]);
     });
 
     test('generator with parallel', async() => {
         const executionOrder = [];
-        const result = await generator(function * () {
-            for (let i = 0; i<7; i++) {
-                yield i;
-            }
+        const result = await provider({
+            * generator () {
+                for (let i = 0; i<7; i++) {
+                    yield i;
+                }
+            },
         })
             .parallel(3)
             .forEach(before => executionOrder.push({ before, }))
@@ -148,7 +158,7 @@ describe('operator generator', () => {
             .await()
             .forEach(after => executionOrder.push({ after, }))
             .reduce((acc, next) => [ ...acc, next, ], [])
-            .resolve();
+            .pull();
 
         expect(result).toEqual([ 0, 1, 2, 3, 4, 5, 6, ]);
         expect(executionOrder).toEqual([
@@ -176,10 +186,12 @@ describe('operator generator', () => {
         let maxDown = 0;
         let invalidParallelCountUp = false;
         let invalidParallelCountDown = false;
-        const result = await generator(async function*() {
-            yield [ 0, 1, 2, ];
-            yield [ 3, 4, 5, ];
-            yield [ 6, 7, 8, ];
+        const result = await provider({
+            async * generator () {
+                yield [ 0, 1, 2, ];
+                yield [ 3, 4, 5, ];
+                yield [ 6, 7, 8, ];
+            },
         })
             .parallel(2)
             .forEach((arr) => {
@@ -204,8 +216,8 @@ describe('operator generator', () => {
                 maxDown--;
             })
             .reduce((acc, next) => [ ...acc, next, ], [])
-            .resolve();
-        const sortedResult =await parallel().flatten().sort().reduce((acc, next) => [ ...acc, next, ], []).resolve(result);
+            .pull();
+        const sortedResult =await provider({ flatten: result, }).sort().reduce((acc, next) => [ ...acc, next, ], []).pull();
         expect(sortedResult ).toEqual([ 0, 1, 2, 3, 4, 5, 6, 7, 8, ]);
         expect(invalidParallelCountDown).toBeFalsy();
         expect(invalidParallelCountUp).toBeFalsy();

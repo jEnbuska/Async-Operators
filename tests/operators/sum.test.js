@@ -1,16 +1,16 @@
-import { parallel, } from '../../';
+import { provider, } from '../../';
 
 describe('operator sum', () => {
 
     test('sum simple', async () => {
-        const result = await parallel()
+        const result = await provider({ flatten: [ 3, 1, -2, ], })
             .sum()
-            .resolve(3, 1, -2);
+            .pull();
         expect(result).toBe(3+1-2);
     });
 
     test('multiple sums', async () => {
-        const result = await parallel()
+        const result = await provider({ flatten: [ 3, 1, -2, ], })
             .sum()
             .flatten(it => {
                 const all = [];
@@ -20,7 +20,7 @@ describe('operator sum', () => {
                 return all;
             })
             .reduce((acc, next) => [ ...acc, next, ], [])
-            .resolve(3, 1, -2);
+            .pull();
         expect(result).toEqual([ 0, 1, 2, ]);
     });
 });
