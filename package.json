@@ -5,7 +5,7 @@
   "engines": {
     "node": ">=8"
   },
-  "version": "4.0.1",
+  "version": "4.0.2",
   "author": "jEnbuska <joonaenb@gmail.com>",
   "license": "MIT",
   "repository": {
@@ -24,7 +24,9 @@
     "test": "jest",
     "test:watch": "npm run test -- --watch"
   },
-  "dependencies": {},
+  "dependencies": {
+    "npm": "^5.7.1"
+  },
   "peerDependencies": {},
   "devDependencies": {
     "babel": "^6.23.0",

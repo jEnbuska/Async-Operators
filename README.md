@@ -10,7 +10,7 @@ familiar functions like 'map', 'filter', 'reduce' etc..
 
 ## Stream initialization:
 ```
-const provider = require('async_operators');
+const { provider } = require('async_operators');
 ```
 
 #### 'provider' accepts an object as argument and can be initialized on one of three ways 
