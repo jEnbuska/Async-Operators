@@ -1,25 +1,27 @@
-import { generator, } from '../../';
+import { provider, } from '../../';
 import { sleepAndReturn, } from '../common';
 
-describe.only('delay operator', () => {
+describe('delay operator', () => {
 
-    test('delay with takeUntil', async() => {
+    test.only('delay with takeUntil', async() => {
         const intermediate = [];
         const before = Date.now();
-        const results = await generator(async function*() {
-            yield 'delay_1';
-            yield await sleepAndReturn(100, 'delay_2');
-            yield await sleepAndReturn(100, 'delay_3');
-            expect(true).toBeFalsy();// should never reach this
+        const results = await provider({
+            async * generator () {
+                yield 'delay_1';
+                yield await sleepAndReturn(200, 'delay_2');
+                yield await sleepAndReturn(200, 'delay_3');
+                expect(true).toBeFalsy();// should never reach this
+            },
         })
             .delay(10)
-            .peek(delayName => intermediate.push(delayName))
+            .forEach(delayName => intermediate.push(delayName))
             .takeUntil(it => it==='delay_2')
-            .toArray()
-            .resolve();
+            .reduce((acc, next) => [ ...acc, next, ], [])
+            .pull();
         expect(intermediate).toEqual([ 'delay_1', 'delay_2', ]);
         expect(results).toEqual([ 'delay_1', ]);
-        expect((Date.now() - before)<150).toBe(true);
+        expect((Date.now() - before)<400).toBe(true);
     });
 
 });

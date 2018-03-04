@@ -1,52 +1,33 @@
-import { parallel, } from '../../';
+import { provider, } from '../../';
 
 describe('operator range', () => {
 
     test('range ACC', async () => {
-        const result = await parallel()
-            .toArray()
-            .range(1, 10);
+        const result = await provider({ range: { from: 1, to: 10, }, })
+            .reduce((acc, next) => [ ...acc, next, ], [])
+            .pull();
         expect(result).toEqual([ 1, 2, 3, 4, 5, 6, 7, 8, 9, ]);
     });
 
     test('range DESC', async () => {
-        const result = await parallel()
-            .toArray()
-            .range(10, 1);
+        const result = await provider({ range: { from: 10, to: 1, }, })
+            .reduce((acc, next) => [ ...acc, next, ], [])
+            .pull();
         expect(result).toEqual([ 10, 9, 8, 7, 6, 5, 4, 3, 2, ]);
     });
 
     test('range 1', async () => {
-        const result = await parallel()
-            .toArray()
-            .range(1, 2);
+        const result = await provider({ range: { from: 1, to: 2, }, })
+            .reduce((acc, next) => [ ...acc, next, ], [])
+            .pull();
         expect(result).toEqual([ 1, ]);
     });
 
     test('range 0', async () => {
-        const result = await parallel()
-            .toArray()
-            .range(1, 1);
+        const result = await provider({ range: { from: 1, to: 1, }, })
+            .reduce((acc, next) => [ ...acc, next, ], [])
+            .pull();
         expect(result).toEqual([ ]);
-    });
-
-    test('range invalid parameter', async () => {
-        expect(() => parallel()
-            .toArray()
-            .range(undefined, 1)).toThrow();
-        expect(() => parallel()
-            .toArray()
-            .range(1, undefined)).toThrow();
-
-        expect(() => parallel()
-            .toArray()
-            .range(undefined, 1)).toThrow();
-        expect(() => parallel()
-            .toArray()
-            .range(1, 1.1)).toThrow();
-        expect(() => parallel()
-            .toArray()
-            .range(1, '2')).toThrow();
     });
 
 });

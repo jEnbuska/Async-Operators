@@ -1,7 +1,6 @@
 Performs asynchronous operations using
 familiar functions like 'map', 'filter', 'reduce' etc..
 
-
 ######No external dependencies
 #### Required Node 8 >=
  
@@ -9,181 +8,115 @@ familiar functions like 'map', 'filter', 'reduce' etc..
 
 ```yarn add async_operators```
 
-## Stream initializers:
+## Stream initialization:
 ```
-const { parallel, generator } = require('async_operators');
-await parallel(?number)... // parameter is limit of parallel executions. Defalts to unlimited
-await generator(generatorFunc | asyncGeneratorFunc)... // example below
-```
-#####parallel example
-```
-const stores = await parallel()
-    .flatten()
-    .map(await store => ({store, location: await fetch(`${LOCATION_API}/${store.id}`)}))
-    .await()
-    .filter(store => store.location)
-    .map(toCamelCase)
-    .toArray()
-    .resolve(await fetch(`${API_URL}/stores`));
-```
-#####generator example
-
-Generator is a **advanced** flattener, that gives you more manual control of flow handling
-```
-const storesWithLocations = await generator(function * fetchAndEmitStores(){
-          const stores = await fetch(`${API_URL}/stores`);
-          for(leti = 0; i<stores.length && active(); i++){
-              yield stores[i];
-          }
-    })
-    .map(async store => ({store, location: await fetch(`${LOCATION_API}/${store.id}`)}))
-    .await()
-    .filter(store => store.location)
-    .map(toCamelCase)
-    .toArray()
-    .resolve();
-```
-## Stream resolvers:
-Calling resolver return a promise that return the result of the stream.
-```
-.resolve(...listOfParams); -> any
-.range(from, to); -> any
-.consume(); -> undefined
-.forEach(callback) -> undefined
+const provider = require('async_operators');
 ```
 
-## Reducing operators:
+#### 'provider' accepts an object as argument and can be initialized on one of three ways 
+##### 'generator' works both with generator function and async generators
 ```
-.toArray()
-.reduce(callback, acc)
+await provider({* generator(){
+     yield 'a'
+     yield 'b'
+}})
+.forEach(value => console.log(value')) // 'a', 'b'
+.pull();
+```
+
+##### 'flatten' excepts an array
+```
+await provider({flatten: ['a', 'b']})
+.forEach(value => console.log(value')) // 'a', 'b'
+.pull();
+```
+##### 'map' expects a value
+```
+await provider({map: ['a', 'b']})
+.flatten()
+.forEach(value => console.log(value')) // 'a', 'b'
+.pull();
+```
+
+##### Calling function 'pull' creates the stream, and starts the execution
+##### The last operator before 'pull' is the output of the execution
+```
+const numbers = await provider({map: [1,2,3]})
+.flatten()
+.map(int => int*2)
+.reduce((acc, int) => [...acc, int], [])
+.pull();
+console.log(numbers); // [2, 4, 6]
+```
+## reducing:
+```
+.reduce((acc, next) => [...acc, next], [])
 .groupBy(...strings)
-.toObject(string | callback)
-.toObjectSet(string | callback)
-.toSet(string | callback)
-.toMap(string | callback)
 .sum()
-.some(string | callback)
-.every(string | callback)
-.first()
 .min(comparator)
 .max(comparator)
+.some(callback); //cancels upstream ones true
+.every(callback); // canceles upstream ones true
+.first(); // cancels upstream ones first resolved
+```
+## filtering:
+```
+.filter(callback); 
+.reject(callback);
+.where(object);
+.distinct();
+.distinctBy(...strings); // of some value spesified in keys differes, then the value is considered distinct
+.skip(number).
+.skipWhile(callback); 
 ```
 
-* Note that invoking operator resulting in single value does not necessarily need a *reducing* operator:
-
-Example below:
+## upstream filtering:
+### upstream filters allow cancelling rest of the upstream execution
 ```
-const agedJohn = await parallel()
-  .map(john => ({...john, age: john.age+1}))
-  .resolve({ name: 'John', age: 25 });
-console.log(agedJohn); // { name: 'John', age: 26, }
+.take(number);
+.takeWhile(callback); 
+.takeUntil(callback);
 ```
-
-#####Reducing operators can also be continued:
+## mapping:
 ```
-const twelve = await parallel().
-    .sum(). // reducing operator
-    .map(sum => sum*2)
-    .resolve(1,2,3);  // second reducing operator
-```
-##### Grouping example
-
-
-groupBy can take multiple arguments. The more arguments are given, the more structured the end result will be
-```
-const groupedPersons = await parallel()
-  .groupBy('gender', 'age')
-  .resolve(
-    {gender: 0, age: 25, name: 'Tim'},
-    {gender: 0: age: 20, name: 'John'}
-) //--> { 0, { 25: [{gender: 0, age: 25, name: 'Tim' }], 20: [{gender: 0, age: 20, name: 'John}]} } }
-```
-
-## filtering operators:
-```
-.filter(?string | ?callback); 
-.reject(string | callback)
-.where(object) 
-```
-#####Explanations
-```
-.filter(/*without parameters*/) // same as --> filter(val => !!val)
-.filter('name') // same as --> filter(val => !!val['name'])
-.reject(...)// is opposite of filter
-.where({name: 'John', age: 25})  // same as --> filter(({age, name}) => age===25 && name: 'John')
-```
-### mapping operators:
-```
-.map(string | callback)
-.scan(callback, seed)
+.map(callback)
 .pick(...strings)
 .omit(...strings)
+.scan(callback, seed);
 ```
-#####Explanations
+## flattening
 ```
-.map(callback); //same array map
-.map('name');// same as array.map(it => it.name)
-
-.scan((acc, next) => ({...acc, [next.id]: next}),{/*seed*})
-  //same as [...].reduce(..., {}), but it publishes all intermediate values
-
-.pick('name','age')
-  //same as --> .map(person => ({name: person.name, age: person.age}))
-
-.omit(...) // negate of pick
-```
-
-## flatMappers:
-```
+.flatten(callback); // default to Object.values
 .keys()  //same as  .flatten(Object.keys)
 .values() //same as .flatten(Object.values)
 .entries() //same as .flatten(Object.entries)
-.flatten(undefined | callback)
-.generator(generatorFunc | asyncGeneratorFunc)
+.generator(* function | async * function)
 ```
-default flattener for 'flatten' is Object.values
+## ordering
+```
+.parallel(number); // provider output is parallel by default
+.ordered(); // makes sure next middleware gets the next value in it's orginal order
+.reverse(); // same as ordered but reversed
+.sort(?callback)
+.sortBy(obj); // expects an object that has values either 'ASC' or 'DESC';
+```
+#### sortBy example
+```
+.sortBy({name: 'DESC', age: 'ASC', gender: 'DESC'});
+```
 
-## flow control filters:
+## catch:
+### without catch block all work stop when error is thrown
 ```
-.take(number) // takes the limit of executable tasks
-.takeWhile(string | callback) // takes tasks until first task return false 
-.takeUntil(string | callback) // negate of takeWhile
-(number) // skips the first tasks
-While(string | callback) // skips the tasks until first task return true
-.distinctBy(...string) //expect one or more keys to be passed as arguments like so distinctBy('a','b','c');
-.distinct() // compares the inputs by their natural value (next history) => history.every(prev => prev!==next)
-```
-### Flow control middlewares have their internal state. This internal state is not shared between different resolves
-```
-const pipe = parallel().take(1);
-const [ a, b, ]= await Promise.all([ pipe.resolve(1), pipe.resolve(2), ]);
-console.log({ a, b, }); // { a: 1, b: 2 }
-```
-middlewares 'take(), takeWhile, takeUntil() & first()' 
-stops all other ongoing operations downstream when their goal is hit
-
-## Ordering
-```
-.parallel()
-.ordered()
-.reverse()
-.sort(undefined | callback | object)
-```
-#####Explanations
-* middlewares 'ordered, reverse, and sort', are blocking the upstream execution until all downstream operations are finished
-* parallel execution stops being parallel on 'ordered,  reverse, sort' middlewares.
-* parallel execution is not recursively parallel by default:
-* sort with object parameter expect an object with shape of: 
-   ```{keyName1: 'DESC', keyName: 'ASC'}```
-
-```
-parallel() // --> parallel
- .await()
- .flatten()// --> not recursively parallel
- .map(async (val) => {/*map something async*/})
- .parallel() // --> parallel again
- .await()
- .resolve(/*some parallel tasks*/) 
+await provider({flatten: [{name: 'John}, null, {name: 'Lisa'}]})
+ .filter(person => person.name!=='John')
+ .map(int => int*2)
+ .catch((error, info) => {
+     console.error(error); // cannot read property 'name' of null
+     console.error(JSON.stringify(info})); // {index: 1, name: 'filter', value: null}
+ })
+ .reduce((acc, person) => [...acc, person], [])
+ .pull()
 ```
 ## await:
 ```
@@ -192,16 +125,10 @@ await() // waits until promise is resolved
 ```
 ## default:
 ```
-.default(any) // emits default value on resolve if no value passes through
-
-const result = await parallel()
+.default(any) // emits default value on resolve to next middleware if the output would otherwise be empty
+const result = await provider({value: 1})
   .filter(it => it!==1)
   .default('NOT_SET')
-  .resolve(1)
+  .pull()
 console.log(result); // 'NOT_SET' 
 ```
-
-## parallel tasks
-* Order of values is not ensured after await()
-* Use sort(comparator) or ordered() after await / await + parallel , if the order of results is relevant
-

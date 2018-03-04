@@ -1,46 +1,64 @@
-const middlewareCreators = require('./middlewareCreators');
-const And = require('./CompositeAnd');
 const createRace = require('./CompositeRace');
-const { createPropertyFilter, createKeySelector, createDistinctHistoryComparator, createPropertySelector, defaultFilter, identity, defaultComparator, createObjectComparator, comparatorError, createGrouper, createIntegerRange, } = require('./utils');
+const { createFirstEndResolver,
+    orderComparator,
+    createSkipWhileFilter,
+    createObjectComparator,
+    createSomeEndResolver,
+    createEveryEndResolver,
+    createTakeLimiter,
+    createScanMapper,
+    createSumReducer,
+    createNegatePredicate,
+    createDistinctFilter,
+    createDistinctByFilter,
+    createOmitMapper,
+    createPickMapper,
+    createCustomReducer,
+    createMaxReducer,
+    createMinReducer,
+    createSkipFilter,
+    createWhereFilter,
+    createTakeUntilFilterResolver,
+    createTakeWhileFilterResolver,
+    defaultFilter,
+    defaultComparator,
+    createGroupByReducer,
+    createGeneratorFromIterator, } = require('./utils');
 /* eslint-disable consistent-return */
+
+const { $catch, $default, $await, generator, repeat, filter, parallel, map, ordered, postUpstreamFilter, preUpStreamFilter, reduce, endReducer, delay, forEach, } = require('./middlewareCreators');
 
 class Operator {
 
     constructor (middlewares = []) {
         this.middlewares = middlewares;
     }
-
-    async resolve (...sources) {
-        let output = undefined;
-        let pushResolver  = {
-            ...await createRace(),
-            async resolve () {},
-            next (val) {
-                output = val;
+    async pull (..._) {
+        if (_.length) {
+            throw new Error('"pull" should be called without parameters.');
+        }
+        let value;
+        const { retire, ...rest }= await createRace();
+        let puller  = {
+            retire,
+            ...rest,
+            catcher (error, { index, name, value, }) {
+                retire();
+                throw new Error(JSON.stringify({ error, index, name, value, }, null, 1));
+            },
+            onValueResolved () {},
+            async onComplete () {},
+            onNext (val) {
+                value = val;
             },
         };
-        const { isActive, next, resolve, } = await this._createMiddlewares(pushResolver);
-        for (let i = 0; i<sources.length && isActive(); i++) next(sources[i], {}, [ i, ]);
-        return resolve().then(() => output);
+        const { onComplete, } = await this._createMiddlewares(puller);
+        return onComplete().then(() => value);
     }
 
-    async consume (..._) {
-        if (_.length) {
-            throw new Error('consume should be called without parameters.');
-        }
-        let pushResolver  = {
-            ...await createRace(),
-            downStream: new And(),
-            async resolve () {},
-            next () {},
-        };
-        const { resolve, } = await this._createMiddlewares(pushResolver);
-        return resolve();
-    }
-
-    async _createMiddlewares (tail) {
+    async _createMiddlewares (puller) {
         const { middlewares, } = this;
-        let acc = tail;
+        let acc = puller;
         for (let i = middlewares.length-1; i>=0; i--) {
             const md = await middlewares[i](acc);
             acc = { ...acc, ...md, };
@@ -48,259 +66,232 @@ class Operator {
         return acc;
     }
 
-    generator (producer, isSource) {
+    // delays
+    delay (timingMs = 0) {
+        let getDelay;
+        if (Number.isInteger(timingMs)) {
+            getDelay =  () => timingMs;
+        } else if (typeof timingMs === 'function') {
+            getDelay = timingMs;
+        } else {
+            try {
+                console.error({ ms: timingMs, });
+            } catch (e) {}
+            throw new Error('Invalid delay passed to delay middleware');
+        }
+        return this._create({ operator: delay, params: { getDelay, }, });
+    }
+    // reducers
+    reduce (callback, seed) {
+        const initReducer= () => ({
+            reduce: createCustomReducer(callback),
+            defaultValue: seed,
+        });
+        return this._create({ operator: reduce, params: { initReducer, }, });
+    }
+
+    groupBy (...keys) {
+        const initReducer= () => ({
+            reduce: createGroupByReducer(keys),
+            defaultValue: {},
+        });
+        return this._create({ operator: reduce, name: 'groupBy', params: { initReducer, }, });
+    }
+
+    sum () {
+        const initReducer = () => ({
+            reduce: createSumReducer(),
+            defaultValue: 0,
+        });
+        return this._create({ operator: reduce, name: 'sum', params: { initReducer, }, });
+    }
+
+    min (comparator = defaultComparator) {
+        const initReducer  = () => ({
+            reduce: createMinReducer(comparator),
+            defaultValue: undefined,
+        });
+        return this._create({ operator: reduce, name: 'min', params: { initReducer, }, });
+    }
+
+    max (comparator = defaultComparator) {
+        const initReducer  = () => ({
+            reduce: createMaxReducer(comparator),
+            defaultValue: undefined,
+        });
+        return this._create({ operator: reduce,  name: 'max', params: { initReducer, }, });
+    }
+
+    // generators
+    generator (producer) {
         if (!producer || !producer.constructor && !producer.constructor.name.endsWith('GeneratorFunction')) {
             console.error('Invalid type passed to generator');
             const type = producer && producer.constructor ? producer.constructor.name : producer;
             console.error(type);
-            throw new Error('generator middleware expect to be passed a GeneratorFunction or AsyncGeneratorFunction');
+            throw new Error('generator middleware expect to be passed an Array, Function, GeneratorFunction or AsyncGeneratorFunction');
         }
-        return this._create(middlewareCreators.generator(producer, isSource));
+        return this._create({ operator: generator, callback: producer, });
     }
 
-    delay (ms = 0) {
-        if (Number.isInteger(ms)) {
-            return this._create(middlewareCreators.delay(ms));
-        } else {
-            try {
-                console.error({ ms, });
-            } catch (e) {}
-            throw new Error('Invalid delay passed to delay middleware');
-        }
-    }
-
-    min (comparator = defaultComparator) {
-        return this._create(middlewareCreators.min(comparator));
-    }
-
-    max (comparator = defaultComparator) {
-        return this._create(middlewareCreators.max(comparator));
-    }
-
-    range (from, to) {
-        const integerRange = createIntegerRange(from, to);
-        return this.resolve(...integerRange);
-    }
-
-    forEach (callback) {
-        return this._create(middlewareCreators.forEach(callback)).consume();
-    }
-
-    first () {
-        return this._create(middlewareCreators.first());
+    flatten (createArray) {
+        const callback = createGeneratorFromIterator(createArray);
+        return this._create({ operator: generator, callback, name: 'flatten', });
     }
 
     keys () {
-        return this._create(middlewareCreators.flatten(Object.keys));
-    }
-
-    entries () {
-        return this._create(middlewareCreators.flatten(Object.entries));
+        const callback = createGeneratorFromIterator(Object.keys);
+        return this._create({ operator: generator, callback, name: 'keys', });
     }
 
     values () {
-        return this._create(middlewareCreators.flatten(Object.values));
+        const callback = createGeneratorFromIterator(Object.values);
+        return this._create({ operator: generator, callback, name: 'values', });
     }
 
-    toArray () {
-        return this._create(middlewareCreators.toArray());
+    entries () {
+        const callback = createGeneratorFromIterator(Object.entries);
+        return this._create({ operator: generator, callback, name: 'entries', });
     }
 
-    groupBy (...keys) {
-        return this._create(middlewareCreators.groupBy(createGrouper(keys)));
-    }
-
-    toObjectSet (picker = identity) {
-        if (typeof picker === 'string') {
-            picker = createPropertySelector(picker);
-        }
-        return this._create(middlewareCreators.toObjectSet(picker));
-    }
-
-    toSet (picker = identity) {
-        if (typeof picker === 'string') {
-            picker = createKeySelector(picker);
-        }
-        return this._create(middlewareCreators.toSet(picker));
-    }
-
-    toObject (picker = identity) {
-        if (typeof picker=== 'string') {
-            picker = createKeySelector(picker);
-        }
-        return this._create(middlewareCreators.toObject(picker));
-    }
-
-    toMap (picker = identity) {
-        if (typeof picker=== 'string') {
-            picker = createKeySelector(picker);
-        }
-        return this._create(middlewareCreators.toMap(picker));
+    // orderers
+    ordered () {
+        const callback =(e1, e2) => orderComparator(e1[0], e2[0]);
+        return this._create({ operator: ordered, callback, name: 'ordered', });
     }
 
     reverse () {
-        return this._create(middlewareCreators.reverse());
+        const callback = ((e1, e2) => orderComparator(e1[0], e2[0])*-1);
+        return this._create({ operator: ordered, callback, name: 'reverse', });
     }
 
-    sort (...params) {
-        const [ head, ] = params;
-        const type = typeof head;
-        if (type === 'undefined') {
-            return this._create(middlewareCreators.sort(defaultComparator));
-        } else if (type === 'function') {
-            return this._create(middlewareCreators.sort(head));
-        } else if (type === 'object') { // shape ~ {[propA]: 'DESC', [propB]: 'ASC'}
-            return this._create(middlewareCreators.sort(createObjectComparator(head)));
-        } else {
-            throw comparatorError;
-        }
+    sort (comparator = defaultComparator) {
+        const callback = (a, b) => comparator(a[1].val, b[1].val);
+        return this._create({ operator: ordered, callback, name: 'sort', });
     }
 
-    await () {
-        return this._create(middlewareCreators.await());
+    sortBy (obj) {
+        const objectComparator= createObjectComparator(obj);
+        const callback = (a, b) => objectComparator(a[1].val, b[1].val);
+        return this._create({ operator: ordered, callback, name: 'sortBy', });
     }
 
-    take (max) {
-        return this._create(middlewareCreators.take(max));
+    // map
+    map (mapper) {
+        const createCallback = () => mapper;
+        return this._create({ operator: map, params: { createCallback, }, });
     }
-
-    sum (summer = identity) {
-        if (typeof summer === 'string') {
-            summer = createKeySelector(summer);
-        }
-        return this._create(middlewareCreators.sum(summer));
-    }
-
-    where (matcher) {
-        return this._create(middlewareCreators.where(matcher));
-    }
-
-    default (defaultValue) {
-        return this._create(middlewareCreators.default(defaultValue));
-    }
-
-    peek (callback = console.log) {
-        if (typeof callback === 'string') {
-            const prefix = callback;
-            callback = val => console.log(`${prefix}:${val}`);
-        }
-        return this._create(middlewareCreators.peek(callback));
-    }
-
-    ordered () {
-        return this._create(middlewareCreators.ordered());
-    }
-
-    parallel (limit = 0) {
-        return this._create(middlewareCreators.parallel(limit));
-    }
-
-    skip (count) {
-        return this._create(middlewareCreators.skip(count));
-    }
-
     pick (...keys) {
-        return this._create(middlewareCreators.pick(keys));
+        const createCallback = () => createPickMapper(keys);
+        return this._create({ operator: map, params: { createCallback, }, name: 'pick', });
     }
-
     omit (...keys) {
-        return this._create(middlewareCreators.omit(keys));
+        const createCallback = () => createOmitMapper(keys);
+        return this._create({ operator: map, params: { createCallback, }, name: 'omit', });
     }
-
-    distinct () {
-        return this._create(middlewareCreators.distinct());
-    }
-
-    distinctBy (...params) {
-        let historyComparator;
-        if (typeof params[0] === 'function') {
-            throw new Error('Distinct by expected to be passed one or more keys as argument');
-        } else {
-            historyComparator = createDistinctHistoryComparator(params);
-        }
-        return this._create(middlewareCreators.distinctBy(historyComparator));
-    }
-
-    flatten (iterator = Object.values) {
-        return this._create(middlewareCreators.flatten(iterator));
-    }
-
-    map (picker) {
-        if (typeof picker === 'string') {
-            picker = createKeySelector(picker);
-        }
-        return this._create(middlewareCreators.map(picker));
-    }
-
-    filter (predicate = defaultFilter) {
-        if (typeof predicate === 'string') {
-            predicate = createPropertyFilter(predicate);
-        }
-        return this._create(middlewareCreators.filter(predicate));
-    }
-
-    reject (predicate) {
-        if (typeof predicate === 'string') {
-            predicate = createPropertyFilter(predicate);
-        }
-        return this._create(middlewareCreators.reject(predicate));
-    }
-
-    every (predicate = defaultFilter) {
-        if (typeof predicate === 'string') {
-            predicate = createPropertyFilter(predicate);
-        }
-        return this._create(middlewareCreators.every(predicate));
-    }
-
-    some (predicate = defaultFilter) {
-        if (typeof predicate === 'string') {
-            predicate = createPropertyFilter(predicate);
-        }
-        return this._create(middlewareCreators.some(predicate));
-    }
-
-  // NEVER CHANGE THE VALUE OF ACC
+    // NEVER CHANGE THE VALUE OF ACC
     scan (scanner, acc = 0) {
-        return this._create(middlewareCreators.scan(scanner, acc));
+        const createCallback = () => createScanMapper(scanner, acc);
+        return this._create({ operator: map, name: 'scan', params: { createCallback, }, });
     }
 
-    reduce (reducer, acc) {
-        return this._create(middlewareCreators.reduce(reducer, acc));
+    // filter
+    filter (predicate = Boolean) {
+        return this._create({ operator: filter, params: { initFilter: () => predicate, }, });
     }
-
-    takeWhile (predicate) {
-        if (typeof predicate === 'string') {
-            predicate= createPropertyFilter(predicate);
-        }
-        return this._create(middlewareCreators.takeWhile(predicate));
+    reject (predicate) {
+        const initFilter= () => createNegatePredicate(predicate);
+        return this._create({ operator: filter, name: 'reject', params: { initFilter, }, });
     }
-
-    takeUntil (predicate) {
-        const type = typeof predicate;
-        if (type === 'string') {
-            predicate = createPropertyFilter(predicate);
-        }
-        return this._create(middlewareCreators.takeUntil(predicate));
+    distinct () {
+        const initFilter = () => createDistinctFilter();
+        return this._create({ operator: filter, name: 'distinct', params: { initFilter, }, });
     }
-
+    distinctBy (...params) {
+        const initFilter = () => createDistinctByFilter(params);
+        return this._create({ operator: filter,  name: 'distinctBy', params: { initFilter, }, });
+    }
+    skip (count = 0) {
+        const initFilter= () => createSkipFilter(count);
+        return this._create({ operator: filter, name: 'skip', params: { initFilter, }, });
+    }
+    where (obj) {
+        const initFilter = () => createWhereFilter(obj);
+        return this._create({ operator: filter, name: 'where', params: { initFilter, }, });
+    }
     skipWhile (predicate) {
-        if (typeof predicate === 'string') {
-            predicate = createPropertyFilter(predicate);
-        }
-        return this._create(middlewareCreators.skipWhile(predicate));
+        const initFilter = () => createSkipWhileFilter(predicate);
+        return this._create({ operator: filter, name: 'skipWhile', params: { initFilter, }, });
     }
 
-    keep (picker = identity) { // this was probably a bad idea
-        if (typeof picker === 'string') {
-            const str = picker;
-            picker = val => ({ [str]: val[str], });
-        }
-        return this._create(middlewareCreators.keep(picker));
+    // endReducer
+    first () {
+        const { callback, defaultValue, }= createFirstEndResolver();
+        return this._create({ operator: endReducer, callback, params: { defaultValue, }, name: 'first', });
+    }
+    every (predicate = defaultFilter) {
+        const { callback, defaultValue, }= createEveryEndResolver(predicate);
+        return this._create({ operator: endReducer, callback, params: { defaultValue, }, name: 'every', });
+    }
+    some (predicate = defaultFilter) {
+        const { callback, defaultValue, }= createSomeEndResolver(predicate);
+        return this._create({ operator: endReducer, callback, params: { defaultValue, }, name: 'some', });
     }
 
-    _create (operation) {
-        return new Operator([ ...this.middlewares, operation, ]);
+    // upStreamFilters
+    takeWhile (predicate) {
+        const createCallback = () => createTakeWhileFilterResolver(predicate);
+        return this._create({ operator: preUpStreamFilter, name: 'takeWhile', params: { createCallback, }, });
+    }
+    takeUntil (predicate) {
+        const createCallback = () => createTakeUntilFilterResolver(predicate);
+        return this._create({ operator: preUpStreamFilter, name: 'takeUntil', params: { createCallback, }, });
+    }
+
+    // postUpstreamFilters
+    take (max) {
+        const createCallback = () => createTakeLimiter(max);
+        return this._create({ operator: postUpstreamFilter, name: 'take', params: { createCallback, }, });
+    }
+
+    // repeaters
+    repeatWhile (predicate, limit = 0) {
+        return this._create({ operator: repeat, callback: predicate, name: 'repeatWhile', params: { limit, }, });
+    }
+
+    repeatUntil (predicate, limit = 0) {
+        const negated = () => !predicate();
+        return this._create({ operator: repeat, callback: negated, name: 'repeatUntil', params: { limit, }, });
+    }
+
+    // peekers
+    forEach (callback) {
+        return this._create({ operator: forEach, callback, });
+    }
+
+    // await
+    await () {
+        return this._create({ operator: $await, });
+    }
+
+    // default
+    default (defaultValue) {
+        return this._create({ operator: $default, params: { defaultValue, }, });
+    }
+
+    // parallel
+    parallel (limit = NaN) {
+        return this._create({ operator: parallel, params: { limit, }, });
+    }
+
+    // catcher
+    catch (callback = console.error) {
+        return this._create({ operator: $catch, callback, });
+    }
+
+    _create ({ operator, callback, params = {}, name, }) {
+        const index = this.middlewares.length;
+        const md = operator({ callback, params, name, index, });
+        return new Operator([ ...this.middlewares, md, ]);
     }
 }
 module.exports = Operator;
