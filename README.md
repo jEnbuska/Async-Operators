@@ -104,6 +104,20 @@ console.log(numbers); // [2, 4, 6]
 ```
 .sortBy({name: 'DESC', age: 'ASC', gender: 'DESC'});
 ```
+
+## catch:
+### without catch block all work stop when error is thrown
+```
+await provider({flatten: [{name: 'John}, null, {name: 'Lisa'}]})
+ .filter(person => person.name!=='John')
+ .map(int => int*2)
+ .catch((error, info) => {
+     console.error(error); // cannot read property 'name' of null
+     console.error(JSON.stringify(info})); // {index: 1, name: 'filter', value: null}
+ })
+ .reduce((acc, person) => [...acc, person], [])
+ .pull()
+```
 ## await:
 ```
 await() // waits until promise is resolved
