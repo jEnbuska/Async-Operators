@@ -3,7 +3,7 @@ import { sleepAndReturn, } from '../common';
 
 describe('delay operator', () => {
 
-    test.only('delay with takeUntil', async() => {
+    test('delay with takeUntil', async() => {
         const intermediate = [];
         const before = Date.now();
         const results = await provider({
