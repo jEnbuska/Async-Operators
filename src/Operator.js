@@ -85,43 +85,43 @@ class Operator {
 
     // reducers
     reduce (callback, seed) {
-        const createReducer= () => ({
+        const initReducer= () => ({
             reduce: createCustomReducer(callback),
             defaultValue: seed,
         });
-        return this._create({ operator: reduce, params: { createReducer, }, });
+        return this._create({ operator: reduce, params: { initReducer, }, });
     }
 
     groupBy (...keys) {
-        const createReducer= () => ({
+        const initReducer= () => ({
             reduce: createGroupByReducer(keys),
             defaultValue: {},
         });
-        return this._create({ operator: reduce, name: 'groupBy', params: { createReducer, }, });
+        return this._create({ operator: reduce, name: 'groupBy', params: { initReducer, }, });
     }
 
     sum () {
-        const createReducer = () => ({
+        const initReducer = () => ({
             reduce: createSumReducer(),
             defaultValue: 0,
         });
-        return this._create({ operator: reduce, name: 'sum', params: { createReducer, }, });
+        return this._create({ operator: reduce, name: 'sum', params: { initReducer, }, });
     }
 
     min (comparator = defaultComparator) {
-        const createReducer  = () => ({
+        const initReducer  = () => ({
             reduce: createMinReducer(comparator),
             defaultValue: undefined,
         });
-        return this._create({ operator: reduce, name: 'min', params: { createReducer, }, });
+        return this._create({ operator: reduce, name: 'min', params: { initReducer, }, });
     }
 
     max (comparator = defaultComparator) {
-        const createReducer  = () => ({
+        const initReducer  = () => ({
             reduce: createMaxReducer(comparator),
             defaultValue: undefined,
         });
-        return this._create({ operator: reduce,  name: 'max', params: { createReducer, }, });
+        return this._create({ operator: reduce,  name: 'max', params: { initReducer, }, });
     }
 
     // generators
@@ -198,31 +198,31 @@ class Operator {
 
     // filter
     filter (predicate = Boolean) {
-        return this._create({ operator: filter, params: { createFilter: () => predicate, }, });
+        return this._create({ operator: filter, params: { initFilter: () => predicate, }, });
     }
     reject (predicate) {
-        const createFilter= () => createNegatePredicate(predicate);
-        return this._create({ operator: filter, name: 'reject', params: { createFilter, }, });
+        const initFilter= () => createNegatePredicate(predicate);
+        return this._create({ operator: filter, name: 'reject', params: { initFilter, }, });
     }
     distinct () {
-        const createFilter = () => createDistinctFilter();
-        return this._create({ operator: filter, name: 'distinct', params: { createFilter, }, });
+        const initFilter = () => createDistinctFilter();
+        return this._create({ operator: filter, name: 'distinct', params: { initFilter, }, });
     }
     distinctBy (...params) {
-        const createFilter = () => createDistinctByFilter(params);
-        return this._create({ operator: filter,  name: 'distinctBy', params: { createFilter, }, });
+        const initFilter = () => createDistinctByFilter(params);
+        return this._create({ operator: filter,  name: 'distinctBy', params: { initFilter, }, });
     }
     skip (count = 0) {
-        const createFilter= () => createSkipFilter(count);
-        return this._create({ operator: filter, name: 'skip', params: { createFilter, }, });
+        const initFilter= () => createSkipFilter(count);
+        return this._create({ operator: filter, name: 'skip', params: { initFilter, }, });
     }
     where (obj) {
-        const createFilter = () => createWhereFilter(obj);
-        return this._create({ operator: filter, name: 'where', params: { createFilter, }, });
+        const initFilter = () => createWhereFilter(obj);
+        return this._create({ operator: filter, name: 'where', params: { initFilter, }, });
     }
     skipWhile (predicate) {
-        const createFilter = () => createSkipWhileFilter(predicate);
-        return this._create({ operator: filter, name: 'skipWhile', params: { createFilter, }, });
+        const initFilter = () => createSkipWhileFilter(predicate);
+        return this._create({ operator: filter, name: 'skipWhile', params: { initFilter, }, });
     }
 
     // endReducer
