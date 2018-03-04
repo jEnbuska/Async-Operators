@@ -44,7 +44,9 @@ describe('misc tests', () => {
 
     test('reverse', async() => {
         const result = await provider({ flatten: [ 1, 2, 3, ], })
+            .forEach(val => console.log(val))
             .reverse()
+            .forEach(val => console.log(val))
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
         expect(result).toEqual([ 3, 2, 1, ]);

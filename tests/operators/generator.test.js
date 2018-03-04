@@ -168,6 +168,7 @@ describe('operator generator', () => {
             },
         })
             .parallel(2)
+            .forEach(e => console.log(e))
             .forEach((arr) => {
                 maxUp+=arr.length;
                 if (maxUp>6) {
@@ -180,15 +181,19 @@ describe('operator generator', () => {
                     yield arr[i];
                 }
             })
+            .forEach(e => console.log(e))
             .parallel(2)
+            .forEach(e => console.log(e))
             .forEach(() => {
                 maxDown++;
                 if (maxDown>2) invalidParallelCountDown = true;
             })
+            .forEach(e => console.log(e))
             .forEach(() => {
                 maxUp--;
                 maxDown--;
             })
+            .forEach(e => console.log(e))
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
         const sortedResult =await provider({ flatten: result, }).sort().reduce((acc, next) => [ ...acc, next, ], []).pull();

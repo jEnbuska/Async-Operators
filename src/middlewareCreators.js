@@ -1,20 +1,31 @@
 /* eslint-disable consistent-return */
 const { sleep, } = require('./utils');
 
-function provider ({ middlewareIndex = 0, name='provider', callback, params: { type, }, }) {
+function provider ({ index = 0, callback, params: { type, }, }) {
     return function createProvider ({ isActive, onNext, race, catcher, onComplete, }) {
         return {
-            async onComplete () {
+            onComplete: async function providerOnComplete () {
                 if (type === 'map') {
-                    await onNext(callback(), [ 0, ]);
+                    let out;
+                    try {
+                        out = callback();
+                    } catch (e) {
+                        catcher(e, { index, name, value: callback, });
+                    }
+                    await onNext(out, [ 0, ]);
                     return onComplete();
                 } else if (type === 'generator') {
                     let generator = await callback();
-                    let result = {};
                     let i = 0;
                     const promises = [];
+                    let result = {};
                     while (true) {
-                        result = await race(generator.next(result.value));
+                        try {
+                            result= await race(generator.next(result.value));
+                        } catch (e) {
+                            catcher(e, { index, name: provider, value: generator, });
+                            continue;
+                        }
                         if (result) {
                             if (isActive()) {
                                 if (!result.done) {
@@ -31,14 +42,20 @@ function provider ({ middlewareIndex = 0, name='provider', callback, params: { t
     };
 }
 
-function filter ({ middlewareIndex, name = 'filter', params: { initFilter, }, }) {
+function filter ({ index, name = 'filter', params: { initFilter, }, }) {
     return function createFilter ({ isActive, onNext, catcher, }) {
         const predicate = initFilter();
         return {
-            onNext: function invokeFilter (val, order) {
+            onNext: function invokeFilter (value, order) {
                 if (isActive()) {
-                    if (predicate(val)) {
-                        return onNext(val, order);
+                    let accept;
+                    try {
+                        accept = predicate(value);
+                    } catch (e) {
+                        return catcher(e, { name, value, index, });
+                    }
+                    if (accept) {
+                        return onNext(value, order);
                     }
                 }
             },
@@ -46,7 +63,7 @@ function filter ({ middlewareIndex, name = 'filter', params: { initFilter, }, })
     };
 }
 
-function endReducer ({ callback, middlewareIndex, name, params: { defaultValue, }, }) {
+function endReducer ({ callback, index, name, params: { defaultValue, }, }) {
     return async function createEndReducer ({ onNext, catcher, extendRace, onComplete, }) {
         let output = defaultValue;
         function resetToInitialState () {
@@ -57,11 +74,16 @@ function endReducer ({ callback, middlewareIndex, name, params: { defaultValue, 
             ...rest,
             retire,
             isActive,
-            onNext: function invokeEndReducer (val) {
+            onNext: function invokeEndReducer (value) {
                 if (isActive()) {
-                    const { value, done, } = callback(val);
-                    output = value;
-                    if (done) {
+                    let out;
+                    try {
+                        out = callback(value);
+                    } catch (e) {
+                        return catcher(e, { value, index, name, });
+                    }
+                    output = out.value;
+                    if (out.done) {
                         retire();
                     }
                 }
@@ -73,7 +95,7 @@ function endReducer ({ callback, middlewareIndex, name, params: { defaultValue, 
         };
     };
 }
-function ordered ({ callback, middlewareIndex, name = 'ordered', }) {
+function ordered ({ callback, index, name = 'ordered', }) {
     return async function createOrdered ({ onNext, isActive, onComplete, race, catcher, }) {
         let futures = {};
         function resetToInitialState () {
@@ -90,14 +112,13 @@ function ordered ({ callback, middlewareIndex, name = 'ordered', }) {
                     };
                 }
             },
-            onComplete: function orderedOnComplete () {
+            onComplete: async function orderedOnComplete () {
                 const runnables = Object.entries(futures).sort(callback).map((e) => e[1].task);
                 let index = 0;
-                return (function orderedResolver () {
-                    if (runnables[index] && isActive()) {
-                        return race(runnables[index++]()).then(orderedResolver);
-                    }
-                })().then(() => onComplete().then(resetToInitialState));
+                while (runnables.length>index && isActive()) {
+                    await race(runnables[index++]());
+                }
+                return onComplete().then(resetToInitialState);
             },
         };
     };
@@ -126,7 +147,7 @@ function $default ({ params: { defaultValue, }, }) {
     };
 }
 
-function parallel ({ middlewareIndex, params: { limit, }, }) {
+function parallel ({ index, params: { limit, }, }) {
     return async function createParallel ({ onNext, isActive, onComplete, race, catcher,  }) {
         let completeLater = [];
         let parallelCount = 0; // TODO add err handling
@@ -166,8 +187,8 @@ function parallel ({ middlewareIndex, params: { limit, }, }) {
     };
 }
 
-function repeat ({ callback, name, middlewareIndex, params: { limit = 0, }, }) {
-    return async function createRepeat({ onNext, isActive, onComplete, race, catcher,  }) {
+function repeat ({ callback, name, index, params: { limit = 0, }, }) {
+    return async function createRepeat ({ onNext, isActive, onComplete, race, catcher,  }) {
         let tasks = [];
         return {
             onNext: function repeatOnNext (val, order) {
@@ -196,7 +217,7 @@ function repeat ({ callback, name, middlewareIndex, params: { limit = 0, }, }) {
         };
     };
 }
-function delay ({ middlewareIndex, params: { getDelay, }, }) {
+function delay ({ index, params: { getDelay, }, }) {
     return function createDelay ({ onComplete, isActive, onNext, race, catcher,  }) {
         let delays = [];
         function resetToInitialState () {
@@ -222,7 +243,7 @@ function delay ({ middlewareIndex, params: { getDelay, }, }) {
     };
 }
 
-function $await ({ middlewareIndex, }) {
+function $await ({ index, }) {
     return function createAwait ({ onNext, isActive, race, onComplete, catcher, }) {
         let promises = [];
         function resetToInitialState () {
@@ -248,33 +269,42 @@ function $await ({ middlewareIndex, }) {
     };
 }
 
-function forEach ({ callback, middlewareIndex, }) {
+function forEach ({ callback, index, }) {
     return function createForEach ({ catcher, onNext, isActive, }) {
         return {
-            onNext: function forEachOnNext (val, order) {
+            onNext: function forEachOnNext (value, order) {
                 if (isActive()) {
-                    callback(val);
-                    return onNext(val, order);
+                    try {
+                        callback(value);
+                    } catch (e) {
+                        return catcher(e, { index, name: 'forEach', value, });
+                    }
+                    return onNext(value, order);
                 }
             },
         };
     };
 }
 
-function map ({ name = 'map', middlewareIndex, params: { createCallback, }, }) {
+function map ({ name = 'map', index, params: { createCallback, }, }) {
     return function createMap ({ onNext, isActive, catcher,  }) {
         const callback = createCallback();
         return {
-            onNext: function mapOnNext (val, order) {
+            onNext: function mapOnNext (value, order) {
                 if (isActive()) {
-                    const out = callback(val);
+                    let out;
+                    try {
+                        out = callback(value);
+                    } catch (e) {
+                        return catcher(e, { index, name, value, });
+                    }
                     return onNext(out, order);
                 }
             },
         };
     };
 }
-function generator ({ callback, name = 'generator', middlewareIndex, }) {
+function generator ({ callback, name = 'generator', index, }) {
     return function createGenerator ({ onNext, onComplete, race, isActive, catcher,  }) {
         let toBeResolved = [];
         function resetToInitialState () {
@@ -289,15 +319,18 @@ function generator ({ callback, name = 'generator', middlewareIndex, }) {
             let result = {};
             let i = 0;
             const promises = [];
-            while (true) {
-                result = await race(gen.next(result.value));
-                if (result) {
-                    if (isActive()) {
-                        if (result.done) return Promise.all(promises);
-                        else {
-                            promises.push(onNext(result.value, [ ...order, i++, ]));
-                            if (isActive()) continue;
-                        }
+            while (isActive()) {
+                try {
+                    result = await race(gen.next(result.value));
+                } catch (e) {
+                    catcher(e, { value: gen, index, name, });
+                    continue;
+                }
+                if (result && isActive()) {
+                    if (result.done) return Promise.all(promises);
+                    else {
+                        promises.push(onNext(result.value, [ ...order, i++, ]));
+                        if (isActive()) continue;
                     }
                 }
                 break;
@@ -316,7 +349,7 @@ function generator ({ callback, name = 'generator', middlewareIndex, }) {
         };
     };
 }
-function reducer ({ name, middlewareIndex, params: { initReducer, }, }) {
+function reducer ({ name, index, params: { initReducer, }, }) {
     return function createReducer ({ isActive, onNext, onComplete, catcher,  }) {
         const { reduce, defaultValue, } = initReducer();
         let acc = defaultValue;
@@ -324,9 +357,14 @@ function reducer ({ name, middlewareIndex, params: { initReducer, }, }) {
             acc = defaultValue;
         }
         return {
-            onNext: function reduceOnNext (val) {
+            onNext: function reduceOnNext (value) {
                 if (isActive()) {
-                    return acc = reduce(acc, val);
+                    try {
+                        acc = reduce(acc, value);
+                    } catch (e) {
+                        return catcher(e, { index, name, value, });
+                    }
+                    return acc;
                 }
             },
             onComplete: function reduceOnComplete () {
@@ -336,17 +374,23 @@ function reducer ({ name, middlewareIndex, params: { initReducer, }, }) {
         };
     };
 }
-function postUpstreamFilter ({ name, middlewareIndex, params: { createCallback, }, }) {
+function postUpstreamFilter ({ name, index, params: { createCallback, }, }) {
     return async function createPostUpstreamFilter ({ onNext, catcher, extendRace, }) {
         const callback = createCallback();
         const { isActive, retire, ...rest } = await extendRace();
                 // TODO how to reset postlimiter?
         return {
             ...rest, isActive, retire,
-            onNext: function postUptreamFilterOnNext (val, order) {
+            onNext: function postUptreamFilterOnNext (value, order) {
                 if (isActive()) {
-                    const res = onNext(val, order);
-                    if (callback(val)) {
+                    const res = onNext(value, order);
+                    let stop;
+                    try {
+                        stop= callback(value);
+                    } catch (e) {
+                        return catcher(e, { value, index, name, });
+                    }
+                    if (stop) {
                         retire();
                     } else {
                         return res;
@@ -357,7 +401,7 @@ function postUpstreamFilter ({ name, middlewareIndex, params: { createCallback, 
     };
 }
 
-function preUpStreamFilter ({ middlewareIndex, name, params: { createCallback, }, }) {
+function preUpStreamFilter ({ index, name, params: { createCallback, }, }) {
     return async function createPreUpStreamFilter ({ onNext, extendRace, catcher, }) {
         const callback = createCallback();
         const { isActive, retire, ...rest } = await extendRace(); // TODO how to reset pre upstream limiter?
@@ -365,10 +409,16 @@ function preUpStreamFilter ({ middlewareIndex, name, params: { createCallback, }
             ...rest,
             retire,
             isActive,
-            onNext: function preUpStreamFilterOnNext (val, order) {
+            onNext: function preUpStreamFilterOnNext (value, order) {
                 if (isActive()) {
-                    if (callback(val)) {
-                        return onNext(val, order);
+                    let accept;
+                    try {
+                        accept = callback(value);
+                    } catch (e) {
+                        return catcher(e, { value, index, name, });
+                    }
+                    if (accept) {
+                        return onNext(value, order);
                     } else {
                         retire();
                     }
@@ -378,13 +428,27 @@ function preUpStreamFilter ({ middlewareIndex, name, params: { createCallback, }
     };
 }
 
-function $catch ({ callback, middlewareIndex, name = 'catch', }) {
+function $catch ({ callback, index, }) {
+    return function createCatch ({ catcher, }) {
+        return {
+            catcher: function onCatch (error, { name, value, index: subjectIndex, continuousError= [], }) {
+                const debugFriendlyInfo = { name, value, index: subjectIndex, continuousError, };
+                try {
+                    callback(error, debugFriendlyInfo);
+                } catch (e) {
+                    continuousError.push({ value: e, index, name: 'catch', });
+                    catcher(e, debugFriendlyInfo);
+                }
+            },
+        };
+    };
 }
 module.exports = {
-    forEach,
-    parallel,
+    $catch,
     $default,
     $await,
+    forEach,
+    parallel,
     delay,
     reduce: reducer,
     map,
@@ -396,4 +460,5 @@ module.exports = {
     endReducer,
     provider,
     repeat,
+
 };

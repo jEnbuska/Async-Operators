@@ -1,4 +1,3 @@
-const And = require('./CompositeAnd');
 const createRace = require('./CompositeRace');
 const { createFirstEndResolver,
     orderComparator,
@@ -38,28 +37,28 @@ class Operator {
         if (_.length) {
             throw new Error('"pull" should be called without parameters.');
         }
-        let err;
         let value;
-        const done = new And(() => !err);
-        let rootResolver  = {
-            ...await createRace(),
-            catcher ({ error, middleware, index, value, }) {
-                err = error;
+        const { retire, ...rest }= await createRace();
+        let puller  = {
+            retire,
+            ...rest,
+            catcher (error, { index, name, value, }) {
+                retire();
+                throw new Error(JSON.stringify({ error, index, name, value, }, null, 1));
             },
             onValueResolved () {},
-            downStream: done,
             async onComplete () {},
             onNext (val) {
                 value = val;
             },
         };
-        const { onComplete, } = await this._createMiddlewares(rootResolver);
+        const { onComplete, } = await this._createMiddlewares(puller);
         return onComplete().then(() => value);
     }
 
-    async _createMiddlewares (rootResolver) {
+    async _createMiddlewares (puller) {
         const { middlewares, } = this;
-        let acc = rootResolver;
+        let acc = puller;
         for (let i = middlewares.length-1; i>=0; i--) {
             const md = await middlewares[i](acc);
             acc = { ...acc, ...md, };
@@ -82,7 +81,6 @@ class Operator {
         }
         return this._create({ operator: delay, params: { getDelay, }, });
     }
-
     // reducers
     reduce (callback, seed) {
         const initReducer= () => ({
@@ -285,13 +283,14 @@ class Operator {
         return this._create({ operator: parallel, params: { limit, }, });
     }
 
+    // catcher
     catch (callback = console.error) {
-        this._create({ operator: $catch, callback, });
+        return this._create({ operator: $catch, callback, });
     }
 
     _create ({ operator, callback, params = {}, name, }) {
-        const middlewareIndex = this.middlewares.length;
-        const md = operator({ callback, params, name, middlewareIndex, });
+        const index = this.middlewares.length;
+        const md = operator({ callback, params, name, index, });
         return new Operator([ ...this.middlewares, md, ]);
     }
 }
