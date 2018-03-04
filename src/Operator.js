@@ -284,7 +284,7 @@ class Operator {
     }
 
     // catcher
-    catch (callback = console.error) {
+    catch (callback = (error, info) => console.error(JSON.stringify({ error, info, }, null, 1))) {
         return this._create({ operator: $catch, callback, });
     }
 
