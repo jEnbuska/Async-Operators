@@ -27,7 +27,7 @@ const { createFirstEndResolver,
     createGeneratorFromIterator, } = require('./utils');
 /* eslint-disable consistent-return */
 
-const { $default, $await, generator, filter, parallel, map, ordered, postLimiter, preLimiter, reduce, endResolver, delay, forEach, } = require('./middlewareCreators');
+const { $catch, $default, $await, generator, repeat, filter, parallel, map, ordered, postUpstreamFilter, preUpStreamFilter, reduce, endReducer, delay, forEach, } = require('./middlewareCreators');
 
 class Operator {
 
@@ -43,7 +43,7 @@ class Operator {
         const done = new And(() => !err);
         let rootResolver  = {
             ...await createRace(),
-            catcher ({ err, middleware, index, value, }) {
+            catcher ({ error, middleware, index, value, }) {
                 err = error;
             },
             onValueResolved () {},
@@ -60,19 +60,14 @@ class Operator {
     async _createMiddlewares (rootResolver) {
         const { middlewares, } = this;
         let acc = rootResolver;
-        const upStream = [];
-        for (let i = 0; i<middlewares.length; i++) {
-            upStream[i] = await middlewares[i](acc);
-            acc = { ...acc, ...upStream[i], };
-        }
-        acc = rootResolver  ;
-        for (let i = upStream.length-1; i>=0; i--) {
-            const md = await upStream[i].createDownStream(acc);
+        for (let i = middlewares.length-1; i>=0; i--) {
+            const md = await middlewares[i](acc);
             acc = { ...acc, ...md, };
         }
         return acc;
     }
 
+    // delays
     delay (timingMs = 0) {
         let getDelay;
         if (Number.isInteger(timingMs)) {
@@ -88,7 +83,7 @@ class Operator {
         return this._create({ operator: delay, params: { getDelay, }, });
     }
 
-    /* Reducers start*/
+    // reducers
     reduce (callback, seed) {
         const createReducer= () => ({
             reduce: createCustomReducer(callback),
@@ -128,14 +123,8 @@ class Operator {
         });
         return this._create({ operator: reduce,  name: 'max', params: { createReducer, }, });
     }
-    /* reducers end*/
 
-    forEach (callback) {
-        return this._create({ operator: forEach, callback, });
-    }
-
-    /* generators */
-
+    // generators
     generator (producer) {
         if (!producer || !producer.constructor && !producer.constructor.name.endsWith('GeneratorFunction')) {
             console.error('Invalid type passed to generator');
@@ -166,8 +155,7 @@ class Operator {
         return this._create({ operator: generator, callback, name: 'entries', });
     }
 
-    /* ordered start */
-
+    // orderers
     ordered () {
         const callback =(e1, e2) => orderComparator(e1[0], e2[0]);
         return this._create({ operator: ordered, callback, name: 'ordered', });
@@ -189,27 +177,11 @@ class Operator {
         return this._create({ operator: ordered, callback, name: 'sortBy', });
     }
 
-    // await
-    await () {
-        return this._create({ operator: $await, });
-    }
-
-    // default
-    default (defaultValue) {
-        return this._create({ operator: $default, params: { defaultValue, }, });
-    }
-
-    // parallel
-    parallel (limit = NaN) {
-        return this._create({ operator: parallel, params: { limit, }, });
-    }
-
     // map
     map (mapper) {
         const createCallback = () => mapper;
         return this._create({ operator: map, params: { createCallback, }, });
     }
-
     pick (...keys) {
         const createCallback = () => createPickMapper(keys);
         return this._create({ operator: map, params: { createCallback, }, name: 'pick', });
@@ -225,69 +197,96 @@ class Operator {
     }
 
     // filter
-    filter (predicate = defaultFilter) {
+    filter (predicate = Boolean) {
         return this._create({ operator: filter, params: { createFilter: () => predicate, }, });
     }
-
     reject (predicate) {
         const createFilter= () => createNegatePredicate(predicate);
         return this._create({ operator: filter, name: 'reject', params: { createFilter, }, });
     }
-
     distinct () {
         const createFilter = () => createDistinctFilter();
         return this._create({ operator: filter, name: 'distinct', params: { createFilter, }, });
     }
-
     distinctBy (...params) {
         const createFilter = () => createDistinctByFilter(params);
         return this._create({ operator: filter,  name: 'distinctBy', params: { createFilter, }, });
     }
-
     skip (count = 0) {
         const createFilter= () => createSkipFilter(count);
         return this._create({ operator: filter, name: 'skip', params: { createFilter, }, });
     }
-
     where (obj) {
         const createFilter = () => createWhereFilter(obj);
         return this._create({ operator: filter, name: 'where', params: { createFilter, }, });
     }
-
     skipWhile (predicate) {
         const createFilter = () => createSkipWhileFilter(predicate);
         return this._create({ operator: filter, name: 'skipWhile', params: { createFilter, }, });
     }
 
-    // endResolver
+    // endReducer
     first () {
         const { callback, defaultValue, }= createFirstEndResolver();
-        return this._create({ operator: endResolver, callback, params: { defaultValue, }, name: 'first', });
+        return this._create({ operator: endReducer, callback, params: { defaultValue, }, name: 'first', });
     }
     every (predicate = defaultFilter) {
         const { callback, defaultValue, }= createEveryEndResolver(predicate);
-        console.log({ callback, defaultValue, });
-        return this._create({ operator: endResolver, callback, params: { defaultValue, }, name: 'every', });
+        return this._create({ operator: endReducer, callback, params: { defaultValue, }, name: 'every', });
     }
     some (predicate = defaultFilter) {
         const { callback, defaultValue, }= createSomeEndResolver(predicate);
-        return this._create({ operator: endResolver, callback, params: { defaultValue, }, name: 'some', });
+        return this._create({ operator: endReducer, callback, params: { defaultValue, }, name: 'some', });
     }
 
-    // preLimiter
+    // upStreamFilters
     takeWhile (predicate) {
         const createCallback = () => createTakeWhileFilterResolver(predicate);
-        return this._create({ operator: preLimiter, name: 'takeWhile', params: { createCallback, }, });
+        return this._create({ operator: preUpStreamFilter, name: 'takeWhile', params: { createCallback, }, });
     }
     takeUntil (predicate) {
         const createCallback = () => createTakeUntilFilterResolver(predicate);
-        return this._create({ operator: preLimiter, name: 'takeUntil', params: { createCallback, }, });
+        return this._create({ operator: preUpStreamFilter, name: 'takeUntil', params: { createCallback, }, });
     }
 
-    // postLimiter
+    // postUpstreamFilters
     take (max) {
         const createCallback = () => createTakeLimiter(max);
-        return this._create({ operator: postLimiter, name: 'take', params: { createCallback, }, });
+        return this._create({ operator: postUpstreamFilter, name: 'take', params: { createCallback, }, });
+    }
+
+    // repeaters
+    repeatWhile (predicate, limit = 0) {
+        return this._create({ operator: repeat, callback: predicate, name: 'repeatWhile', params: { limit, }, });
+    }
+
+    repeatUntil (predicate, limit = 0) {
+        const negated = () => !predicate();
+        return this._create({ operator: repeat, callback: negated, name: 'repeatUntil', params: { limit, }, });
+    }
+
+    // peekers
+    forEach (callback) {
+        return this._create({ operator: forEach, callback, });
+    }
+
+    // await
+    await () {
+        return this._create({ operator: $await, });
+    }
+
+    // default
+    default (defaultValue) {
+        return this._create({ operator: $default, params: { defaultValue, }, });
+    }
+
+    // parallel
+    parallel (limit = NaN) {
+        return this._create({ operator: parallel, params: { limit, }, });
+    }
+
+    catch (callback = console.error) {
+        this._create({ operator: $catch, callback, });
     }
 
     _create ({ operator, callback, params = {}, name, }) {

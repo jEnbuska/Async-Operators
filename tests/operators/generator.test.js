@@ -117,32 +117,6 @@ describe('operator generator', () => {
         expect(results).toEqual([ 1, ]);
     });
 
-    test('generator with normal function should not cause error', async() => {
-
-        const result = await provider({
-            function () {
-                return [ 1, 2, 3, ];
-            },
-        })
-            .flatten()
-            .reduce((acc, next) => [ ...acc, next, ], [])
-            .pull();
-        expect(result).toEqual([ 1, 2, 3, ]);
-    });
-
-    test('generator with async function asyncfunction should not cause error', async() => {
-
-        const result = await provider({
-            async future () {
-                return await sleepAndReturn(20, [ 1, 2, 3, ]);
-            },
-        })
-            .flatten()
-            .reduce((acc, next) => [ ...acc, next, ], [])
-            .pull();
-        expect(result).toEqual([ 1, 2, 3, ]);
-    });
-
     test('generator with parallel', async() => {
         const executionOrder = [];
         const result = await provider({

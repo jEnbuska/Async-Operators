@@ -19,7 +19,7 @@ describe('misc tests', () => {
     });
 
     test('keys', async() => {
-        const result = await provider({ value: { a: 1, b: 2, }, })
+        const result = await provider({ map: { a: 1, b: 2, }, })
             .keys()
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -27,7 +27,7 @@ describe('misc tests', () => {
     });
 
     test('values', async() => {
-        const result = await provider({ value: { a: 1, b: 2, }, })
+        const result = await provider({ map: { a: 1, b: 2, }, })
             .values()
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -35,7 +35,7 @@ describe('misc tests', () => {
     });
 
     test('entries', async() => {
-        const result = await provider({ value: { a: 1, b: 2, }, })
+        const result = await provider({ map: { a: 1, b: 2, }, })
             .entries()
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();

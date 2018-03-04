@@ -3,15 +3,11 @@ const { provider: createProvider, } = require('./src/middlewareCreators');
 const { createGeneratorFromIterator, createIntegerRange, ASC, DESC, }= require('./src/utils');
 
 function provider (param = {}) {
-    const { function: func, future, generator, value, flatten, range, } = param;
-    if (generator) {
+    const { generator, map, flatten, range, } = param;
+    if (map) {
+        return new Operator([ createProvider({ callback: () => map, params: { type: 'map', }, }), ]);
+    } else if (generator) {
         return new Operator([ createProvider({ callback: generator, params: { type: 'generator', }, }), ]);
-    } else if (future) {
-        return new Operator([ createProvider({ callback: future, params: { type: 'async', }, }), ]);
-    } else if (func) {
-        return new Operator([ createProvider({ callback: func, params: { type: 'func', }, }), ]);
-    } else if (param.hasOwnProperty('value')) {
-        return new Operator([ createProvider({ callback: () => value, params: { type: 'func', }, }), ]);
     } else if (flatten) {
         const callback = () => createGeneratorFromIterator()(flatten);
         return new Operator([ createProvider({ callback, params: { type: 'generator', }, }), ]);
@@ -20,7 +16,7 @@ function provider (param = {}) {
         const callback = () => createGeneratorFromIterator()(intRange);
         return new Operator([ createProvider({ callback, params: { type: 'generator', }, }), ]);
     }
-    throw new Error('Provider Expect to receive an object with key "function", "value", "generator" or "flatten"');
+    throw new Error('Provider Expect to receive an object with key "map", "flatten", "range" or "generator"');
 }
 
 module.exports = {

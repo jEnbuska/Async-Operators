@@ -15,7 +15,7 @@ describe('examples', async () => {
     });
 
     test('flatten with limit example', async () => {
-        const names = await provider({ value: { firstname: 'John', lastname: 'Doe', }, })
+        const names = await provider({ map: { firstname: 'John', lastname: 'Doe', }, })
             .flatten() // optionally flattener can be passed as callback
             .take(2) // stops all downstreams operations when limit is hit
             .reduce((acc, next) => [ ...acc, next, ], [])
@@ -46,14 +46,14 @@ describe('examples', async () => {
     });
 
     test('map single value', async () => {
-        const agedJohn = await provider({ value: { name: 'John', age: 25, }, })
+        const agedJohn = await provider({ map: { name: 'John', age: 25, }, })
             .map(john => ({ ...john, age: john.age+1, }))
             .pull();
         expect(agedJohn).toEqual({ name: 'John', age: 26, });
     });
 
     test('default example', async () => {
-        const result = await provider({ value: 1, })
+        const result = await provider({ map: 1, })
             .filter(it => it!==1)
             .default('NOT_SET')
             .pull();

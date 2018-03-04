@@ -21,7 +21,7 @@ function createResolvable () {
 }
 
 const { isInteger, } = Number;
-function createIntegerRange (from, to) {
+function createIntegerRange (from = 0, to = 0) {
     if (isInteger(from) && isInteger(to)) {
         const integers = [];
         if (from<to) {
@@ -308,10 +308,10 @@ function createEveryEndResolver (predicate) {
 
 function createFirstEndResolver () {
     return {
-        defaultValue: true,
-        callback () {
+        defaultValue: undefined,
+        callback (value) {
             return {
-                value: false,
+                value,
                 done: true,
             };
         },
@@ -370,57 +370,10 @@ function createGeneratorFromIterator (createIterator = Object.values) {
     };
 }
 
-function createSource (param) {
-    const sourceOptions = [
-        (param) => {
-            if (!param) {
-                return {
-                    type: 'value', *generator () {
-                        yield param;
-                    },
-                };
-            }
-        },
-        (param) => {
-            if (param.constructor.name.endsWith(('GeneratorFunction'))) {
-                return { generator: param, type: 'generator', };
-            }
-        },
-        (param) => {
-            if (param.constructor.name === 'AsyncFunction') {
-                return async function*() {
-                    yield { generator: await param(), type: 'async', };
-                };
-            }
-        },
-        param => {
-            if (param.constructor.name === 'Function') {
-                return {
-                    type: 'value',
-                    *generator () {
-                        yield param();
-                    },
-                };
-            }
-        },
-        param => ({
-            type: 'value',
-            *generator () {
-                return yield param;
-            },
-        }),
-    ];
-    let generator;
-    for (let i = 0; i<sourceOptions.length && !generator; i++) {
-        generator = sourceOptions[i](param);
-    }
-    return generator;
-}
 module.exports = {
     NOT_SET,
     defaultFilter,
     createDistinctByFilter,
-    identity,
     orderComparator,
     defaultComparator,
     createObjectComparator,

@@ -31,7 +31,9 @@ describe('concurrency operators ', () => {
         expect(results).toEqual([ 5, ]);
     });
 
-    test('parallel with max execution limit', async() => {
+    test('max parallel execution limit', async() => {
+        let executing = 0;
+        let max = 0;
         const results = await provider({ flatten: [
             () => sleepAndReturn(0, 0),
             () => sleepAndReturn(100, 100),
@@ -41,15 +43,18 @@ describe('concurrency operators ', () => {
             () => sleepAndReturn(150, 150),
         ], })
             .parallel(3)
+            .forEach(() => {
+                executing++;
+                if (executing>max) {
+                    max=executing;
+                }
+            })
             .map(it => it())
             .await()
+            .forEach(() => executing--)
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
-        /* (10 -> 55) => [0]=10 (at 10ms) => [5] = 55 (at 65ms)
-              (30 -> 15) => [1]=30 (at 30ms) => [2]=15 (at 45ms)
-              (50 -> 0) => [3]=50 (at 50ms) => [4] = 0; (at 50ms)
-        * */
+        expect(max).toBe(3);
         expect(results).toEqual([ 0, 25, 25, 75, 100, 150, ]);
-
     });
 });

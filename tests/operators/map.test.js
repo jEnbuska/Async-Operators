@@ -3,7 +3,7 @@ import { sleepAndReturn, } from '../common';
 
 describe('operator map', () => {
     test('map sync with callback', async () => {
-        const result = await provider({ value: 1, })
+        const result = await provider({ map: 1, })
             .map(it => it*2)
             .pull();
         expect(result).toBe(2);

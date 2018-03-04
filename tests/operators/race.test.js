@@ -52,7 +52,7 @@ describe('race', () => {
             async *generator () {
                 yield 10;
                 yield 20;
-                yield 30;
+                yield 60;
             },
         })
             .forEach(it => console.log(it))
@@ -68,7 +68,7 @@ describe('race', () => {
             .pull();
         expect(intermediate).toEqual([ 10, 20, ]);
         expect(results).toEqual([ 10, ]);
-        expect((Date.now() - before)<35).toBe(true);
+        expect((Date.now() - before)<45).toBe(true);
     });
 
     test('ordered should stop resolving values after cancelled', async() => {
