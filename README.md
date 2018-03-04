@@ -113,7 +113,7 @@ await provider({flatten: [{name: 'John}, null, {name: 'Lisa'}]})
  .map(int => int*2)
  .catch((error, info) => {
      console.error(error); // cannot read property 'name' of null
-     console.error(JSON.stringify(info})); // {index: 1, name: 'filter', value: null}
+     console.error(JSON.stringify(info)); // {index: 1, name: 'filter', value: null}
  })
  .reduce((acc, person) => [...acc, person], [])
  .pull()
