@@ -11,15 +11,6 @@ function sleep (ms) {
     return new Promise(res => setTimeout(res, ms));
 }
 
-function createResolvable () {
-    return new Promise(onResolvableCreated => {
-        const promise = new Promise(resolve => onResolvableCreated({
-            get promise () {
-                return promise;
-            }, resolve, }));
-    });
-}
-
 const { isInteger, } = Number;
 function createIntegerRange (from = 0, to = 0) {
     if (isInteger(from) && isInteger(to)) {
@@ -71,8 +62,25 @@ function createDistinctByFilter (keys) {
     };
 }
 
-function identity (val) {
-    return val;
+function createLatestTaskFilter (keys) {
+    if (!keys.length) {
+        console.error(keys); throw new Error('Invalid parameter passed to historyComparator');
+    }
+    return function latestByFilter (value, fututers) {
+        const latestDistinctFutures = [];
+        for (let i = 0; i<keys.length && fututers.length; i++) {
+            const key = keys[i];
+            fututers = fututers.filter(e => {
+                if (e.value[key] !== value[key]) {
+                    latestDistinctFutures.push(e);
+                    return false;
+                } else {
+                    return true;
+                }
+            });
+        }
+        return latestDistinctFutures;
+    };
 }
 
 function createSet (keys) {
@@ -149,11 +157,6 @@ function createObjectComparator (obj) {
         }
         return result;
     };
-}
-
-function arrayReducer (acc = [], val) {
-    acc.push(val);
-    return acc;
 }
 
 function createWhereFilter (obj) {
@@ -382,8 +385,6 @@ module.exports = {
     createIntegerRange,
     ASC,
     DESC,
-    createResolvable,
-    arrayReducer,
     createCustomReducer,
     createMaxReducer,
     createWhereFilter,
@@ -404,4 +405,5 @@ module.exports = {
     createTakeUntilFilterResolver,
     createGeneratorFromIterator,
     sleep,
+    createLatestTaskFilter,
 };

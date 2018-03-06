@@ -22,11 +22,12 @@ const { createFirstEndResolver,
     createTakeWhileFilterResolver,
     defaultFilter,
     defaultComparator,
+    createLatestTaskFilter,
     createGroupByReducer,
     createGeneratorFromIterator, } = require('./utils');
 /* eslint-disable consistent-return */
 
-const { $catch, $default, $await, generator, repeat, filter, parallel, map, ordered, postUpstreamFilter, preUpStreamFilter, reduce, endReducer, delay, forEach, } = require('./middlewareCreators');
+const { $catch, $default, latest, $await, generator, repeat, filter, parallel, map, ordered, postUpstreamFilter, preUpStreamFilter, reduce, endReducer, delay, forEach, } = require('./middlewareCreators');
 
 class Operator {
 
@@ -141,6 +142,11 @@ class Operator {
     keys () {
         const callback = createGeneratorFromIterator(Object.keys);
         return this._create({ operator: generator, callback, name: 'keys', });
+    }
+
+    latestBy (...keys) {
+        const callback = createLatestTaskFilter(keys);
+        return this._create({ operator: latest, callback, name: 'latestBy', });
     }
 
     values () {

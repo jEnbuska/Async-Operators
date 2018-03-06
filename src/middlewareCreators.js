@@ -95,6 +95,36 @@ function endReducer ({ callback, index, name, params: { defaultValue, }, }) {
         };
     };
 }
+
+function latest ({ index, callback, name='latest', }) {
+    return function createLatest ({ isActive, onNext, race, catcher, onComplete, }) {
+        let futures = [];
+        function resetToInitialState () {
+            futures = [];
+        }
+        return {
+            onComplete: function latestOnComplete () {
+                if (isActive()) {
+                    return race(Promise.all(futures.map(e => e.task()))).then(() => onComplete().then(resetToInitialState));
+                } else {
+                    return onComplete().then(resetToInitialState);
+                }
+            },
+            onNext: function invokeOnNext (value, order) {
+                if (isActive()) {
+                    try {
+                        futures = callback(value, futures);
+                    } catch (e) {
+                        return catcher(e, { value, index, name, });
+                    }
+                    futures.push({ value, task () {
+                        return onNext(value, order);
+                    }, });
+                }
+            },
+        };
+    };
+}
 function ordered ({ callback, index, name = 'ordered', }) {
     return async function createOrdered ({ onNext, isActive, onComplete, race, catcher, }) {
         let futures = {};
@@ -102,12 +132,12 @@ function ordered ({ callback, index, name = 'ordered', }) {
             futures = {};
         }
         return {
-            onNext: function invokeOrdered (val, order) {
+            onNext: function invokeOrdered (value, order) {
                 if (isActive()) {
                     futures[order] = {
-                        val,
+                        val: value,
                         task () {
-                            onNext(val, order);
+                            onNext(value, order);
                         },
                     };
                 }
@@ -131,10 +161,10 @@ function $default ({ params: { defaultValue, }, }) {
             isSet = false;
         }
         return {
-            onNext: function defaultOnNext (val, order) {
+            onNext: function defaultOnNext (value, order) {
                 if (isActive()) {
                     isSet = true;
-                    return onNext(val, order);
+                    return onNext(value, order);
                 }
             },
             onComplete: function defaultOnComplete () {
@@ -171,9 +201,9 @@ function parallel ({ index, params: { limit, }, }) {
             return race(Promise.all(resoleNow.map(promise => race(promise()).then(decrementParallelCount).then(completeRest))));
         }
         return {
-            onNext: function parallelOnNext (val, order) {
+            onNext: function parallelOnNext (value, order) {
                 if (isActive()) {
-                    completeLater.push(async () => onNext(val, order));
+                    completeLater.push(async () => onNext(value, order));
                     if (parallelCount!==limit) {
                         pending.push(completeRest());
                         return pending[pending.length-1];
@@ -191,9 +221,9 @@ function repeat ({ callback, name, index, params: { limit = 0, }, }) {
     return async function createRepeat ({ onNext, isActive, onComplete, race, catcher,  }) {
         let tasks = [];
         return {
-            onNext: function repeatOnNext (val, order) {
+            onNext: function repeatOnNext (value, order) {
                 if (isActive()) {
-                    tasks.push(() => onNext(val, order));
+                    tasks.push(() => onNext(value, order));
                     return tasks[tasks.length-1]();
                 }
             },
@@ -223,16 +253,16 @@ function delay ({ index, params: { getDelay, }, }) {
         function resetToInitialState () {
             delays = [];
         }
-        async function createDelay (val, order) {
-            await race(sleep(getDelay(val)));
+        async function createDelay (value, order) {
+            await race(sleep(getDelay(value)));
             if (isActive()) {
-                return onNext(val, order);
+                return onNext(value, order);
             }
         }
         return {
-            onNext: function delayOnNext (val, order) {
+            onNext: function delayOnNext (value, order) {
                 if (isActive()) {
-                    delays.push(createDelay(val, order));
+                    delays.push(createDelay(value, order));
                     return delays[delays.length-1];
                 }
             },
@@ -249,15 +279,15 @@ function $await ({ index, }) {
         function resetToInitialState () {
             promises = [];
         }
-        function applyAwait (val, order) {
-            const promise = race(val).then(val => isActive() && onNext(val, order));
+        function applyAwait (value, order) {
+            const promise = race(value).then(value => isActive() && onNext(value, order));
             promises.push(promise);
             return promise;
         }
         return {
-            onNext: function awaitOnNext (val, order) {
+            onNext: function awaitOnNext (value, order) {
                 if (isActive()) {
-                    return applyAwait(val, order);
+                    return applyAwait(value, order);
                 }
             },
             onComplete: function awaitOnComplete () {
@@ -310,9 +340,9 @@ function generator ({ callback, name = 'generator', index, }) {
         function resetToInitialState () {
             toBeResolved = [];
         }
-        async function generatorResolver (val, order = []) {
+        async function generatorResolver (value, order = []) {
             let gen;
-            gen = await callback(val);
+            gen = await callback(value);
             if (!gen.next) {
                 return onNext(gen, order);
             }
@@ -337,9 +367,9 @@ function generator ({ callback, name = 'generator', index, }) {
             }
         }
         return {
-            onNext: function generatorOnNext (val, order) {
+            onNext: function generatorOnNext (value, order) {
                 if (isActive()) {
-                    toBeResolved.push(generatorResolver(val, order));
+                    toBeResolved.push(generatorResolver(value, order));
                     return toBeResolved[toBeResolved.length-1];
                 }
             },
@@ -364,7 +394,6 @@ function reducer ({ name, index, params: { initReducer, }, }) {
                     } catch (e) {
                         return catcher(e, { index, name, value, });
                     }
-                    return acc;
                 }
             },
             onComplete: function reduceOnComplete () {
@@ -432,7 +461,7 @@ function $catch ({ callback, index, }) {
     return function createCatch ({ catcher, }) {
         return {
             catcher: function onCatch (error, { name, value, index: subjectIndex, continuousError= [], }) {
-                const debugFriendlyInfo = { name, value, index: subjectIndex, continuousError, };
+                const debugFriendlyInfo = { name, value: value === undefined ? '$undefined': value, index: subjectIndex, continuousError, };
                 try {
                     callback(error, debugFriendlyInfo);
                 } catch (e) {
@@ -460,5 +489,5 @@ module.exports = {
     endReducer,
     provider,
     repeat,
-
+    latest,
 };
