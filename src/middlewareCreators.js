@@ -1,5 +1,5 @@
 /* eslint-disable consistent-return */
-const { sleep, } = require('./utils');
+const { sleep, createResolvable, } = require('./utils');
 
 function provider ({ index = 0, callback, params: { type, }, }) {
     return function createProvider ({ isActive, onNext, race, catcher, onComplete, }) {
@@ -14,6 +14,20 @@ function provider ({ index = 0, callback, params: { type, }, }) {
                     }
                     await onNext(out, [ 0, ]);
                     return onComplete();
+                } else if (type === 'callback') {
+                    let i = 0;
+                    const { resolve, promise, } = await createResolvable();
+                    callback({
+                        onNext: function callbackOnNext (value) {
+                            if (isActive()) {
+                                onNext(value, [ i++, ]);
+                            }
+                        },
+                        onComplete: function callbackOnComplete () {
+                            resolve();
+                        },
+                    });
+                    return promise.then(onComplete);
                 } else if (type === 'generator') {
                     let generator = await callback();
                     let i = 0;

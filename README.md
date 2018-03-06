@@ -13,7 +13,7 @@ familiar functions like 'map', 'filter', 'reduce' etc..
 const { provider } = require('async_operators');
 ```
 
-#### 'provider' accepts an object as argument and can be initialized on one of three ways 
+#### 'provider' accepts an object as argument and can be initialized on one of four ways 
 ##### 'generator' works both with generator function and async generators
 ```
 await provider({* generator(){
@@ -23,7 +23,23 @@ await provider({* generator(){
 .forEach(value => console.log(value')) // 'a', 'b'
 .pull();
 ```
-
+##### 'callback'
+```
+function returnLater(result){
+    return new Promise(resolve => setTimeout(() => resolve(result),  10));
+}
+await provider({
+    async callback({onNext, onComplete}){
+        const a = await returnLater('a')
+        onNext(a);
+        const b = await returnLater('b')
+        onNext(b);
+        onComplete()
+    }
+}})
+.forEach(value => console.log(value')) // 'a', 'b'
+.pull();
+```
 ##### 'flatten' excepts an array
 ```
 await provider({flatten: ['a', 'b']})
