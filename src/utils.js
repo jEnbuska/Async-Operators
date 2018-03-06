@@ -66,11 +66,11 @@ function createLatestTaskFilter (keys) {
     if (!keys.length) {
         console.error(keys); throw new Error('Invalid parameter passed to historyComparator');
     }
-    return function latestByFilter (value, fututers) {
+    return function latestByFilter (value, futures) {
         const latestDistinctFutures = [];
-        for (let i = 0; i<keys.length && fututers.length; i++) {
+        for (let i = 0; i<keys.length && futures.length; i++) {
             const key = keys[i];
-            fututers = fututers.filter(e => {
+            futures = futures.filter(e => {
                 if (e.value[key] !== value[key]) {
                     latestDistinctFutures.push(e);
                     return false;
