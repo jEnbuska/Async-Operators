@@ -225,7 +225,7 @@ function parallel ({ index, params: { limit, }, }) {
                 }
             },
             onComplete: function parallelOnComplete () {
-                return Promise.all([ ...pending, ...completeRest(), ]).then(() => onComplete().then(resetToInitialState));
+                return Promise.all([ ...pending, completeRest(), ]).then(() => onComplete().then(resetToInitialState));
             },
         };
     };
