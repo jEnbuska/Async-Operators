@@ -1,4 +1,4 @@
-const createRace = require('./CompositeRace');
+const createRace = require('./compositeRace');
 const { createFirstEndResolver,
     orderComparator,
     createSkipWhileFilter,
