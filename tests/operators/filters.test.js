@@ -1,5 +1,4 @@
 import { provider, } from '../../';
-import { sleepAndReturn, } from '../common';
 
 describe('filter operators', () => {
 

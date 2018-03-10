@@ -4,7 +4,6 @@ import { sleep, } from '../common';
 describe('provider from callback', () => {
 
     test('callback', async() => {
-
         async function oneTwoThree (onNext) {
             await sleep(10);
             onNext(1);

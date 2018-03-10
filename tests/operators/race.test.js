@@ -19,9 +19,10 @@ describe('race', () => {
             .takeUntil(it => it===2)
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
+        expect((Date.now() - before)<150).toBe(true);
+        await sleep(20); // ensure line 4 in generator is never reached
         expect(intermediate).toEqual([ 1, 2, ]);
         expect(results).toEqual([ 1, ]);
-        expect((Date.now() - before)<150).toBe(true);
     });
 
     test('await should stop resolving values after cancelled', async() => {
@@ -32,7 +33,7 @@ describe('race', () => {
             async * generator () {
                 yield 10;
                 yield 20;
-                yield 30;
+                yield 200;
             },
         })
             .map(int => sleepAndReturn(int, int))
@@ -41,9 +42,9 @@ describe('race', () => {
             .takeUntil(it => it===20)
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
+        expect((Date.now() - before)<50).toBe(true);
         expect(intermediate).toEqual([ 10, 20, ]);
         expect(results).toEqual([ 10, ]);
-        expect((Date.now() - before)<35).toBe(true);
     });
 
     test('ordered  should stop resolving values after cancelled', async() => {
@@ -110,7 +111,6 @@ describe('race', () => {
     });
 
     test('delay should stop resolving values after cancelled', async() => {
-
         const intermediate = [];
         const before = Date.now();
         const results = await provider({
@@ -127,10 +127,9 @@ describe('race', () => {
             .takeUntil(it => it===20)
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
+        expect((Date.now() - before)<40).toBe(true);
         expect(intermediate).toEqual([ 10, 20, ]);
         expect(results).toEqual([ 10, ]);
-
-        expect((Date.now() - before)<35).toBe(true);
     });
     test('parallel should stop resolving values after cancelled', async() => {
         const intermediate = [];
@@ -139,7 +138,7 @@ describe('race', () => {
             async * generator () {
                 yield 10;
                 yield 20;
-                yield 30;
+                yield 200;
             },
         })
             .map(int => sleepAndReturn(int, int))
@@ -151,6 +150,6 @@ describe('race', () => {
             .pull();
         expect(intermediate).toEqual([ 10, 20, ]);
         expect(results).toEqual([ 10, ]);
-        expect((Date.now() - before)<35).toBe(true);
+        expect((Date.now() - before)<50).toBe(true);
     });
 });
