@@ -2,7 +2,7 @@
 const { sleep, createResolvable, } = require('./utils');
 
 function provider ({ index = 0, callback, params: { type, }, }) {
-    return function createProvider ({ isActive, onNext, race, catcher, onComplete, }) {
+    return function createProvider ({ isActive, onNext, race, onError, onComplete, }) {
         return {
             onComplete: async function providerOnComplete () {
                 if (type === 'map') {
@@ -10,21 +10,25 @@ function provider ({ index = 0, callback, params: { type, }, }) {
                     try {
                         out = callback();
                     } catch (e) {
-                        catcher(e, { index, name, value: callback, });
+                        onError(e, { index, name, value: callback, });
                     }
                     await onNext(out, [ 0, ]);
                     return onComplete();
                 } else if (type === 'callback') {
                     let i = 0;
                     const { resolve, promise, } = await createResolvable();
+                    const toBeResolved = [];
                     callback({
+                        isActive,
                         onNext: function callbackOnNext (value) {
                             if (isActive()) {
-                                onNext(value, [ i++, ]);
+                                const next = onNext(value, [ i++, ]);
+                                toBeResolved.push(next);
+                                return next;
                             }
                         },
                         onComplete: function callbackOnComplete () {
-                            resolve();
+                            return race(Promise.all(toBeResolved)).then(resolve);
                         },
                     });
                     return promise.then(onComplete);
@@ -37,7 +41,7 @@ function provider ({ index = 0, callback, params: { type, }, }) {
                         try {
                             result= await race(generator.next(result.value));
                         } catch (e) {
-                            catcher(e, { index, name: provider, value: generator, });
+                            onError(e, { index, name: provider, value: generator, });
                             continue;
                         }
                         if (result) {
@@ -57,7 +61,7 @@ function provider ({ index = 0, callback, params: { type, }, }) {
 }
 
 function filter ({ index, name = 'filter', params: { initFilter, }, }) {
-    return function createFilter ({ isActive, onNext, catcher, }) {
+    return function createFilter ({ isActive, onNext, onError, }) {
         const predicate = initFilter();
         return {
             onNext: function invokeFilter (value, order) {
@@ -66,7 +70,7 @@ function filter ({ index, name = 'filter', params: { initFilter, }, }) {
                     try {
                         accept = predicate(value);
                     } catch (e) {
-                        return catcher(e, { name, value, index, });
+                        return onError(e, { name, value, index, });
                     }
                     if (accept) {
                         return onNext(value, order);
@@ -78,14 +82,12 @@ function filter ({ index, name = 'filter', params: { initFilter, }, }) {
 }
 
 function endReducer ({ callback, index, name, params: { defaultValue, }, }) {
-    return async function createEndReducer ({ onNext, catcher, extendRace, onComplete, }) {
+    return async function createEndReducer ({ onNext, onError, extendRace, onComplete, }) {
         let output = defaultValue;
-        function resetToInitialState () {
-            output = defaultValue;
-        }
-        const { isActive, retire, ...rest } = await extendRace();
+        const { isActive, retire, race, ...rest } = await extendRace();
         return {
             ...rest,
+            race,
             retire,
             isActive,
             onNext: function invokeEndReducer (value) {
@@ -94,7 +96,7 @@ function endReducer ({ callback, index, name, params: { defaultValue, }, }) {
                     try {
                         out = callback(value);
                     } catch (e) {
-                        return catcher(e, { value, index, name, });
+                        return onError(e, { value, index, name, });
                     }
                     output = out.value;
                     if (out.done) {
@@ -102,26 +104,22 @@ function endReducer ({ callback, index, name, params: { defaultValue, }, }) {
                     }
                 }
             },
-            onComplete: function resolveEndReducer () {
-                onNext(output, [ 0, ]);
-                return onComplete().then(resetToInitialState);
+            onComplete: async function resolveEndReducer () {
+                return race(onNext(output, [ 0, ])).then(onComplete);
             },
         };
     };
 }
 
 function latest ({ index, callback, name='latest', }) {
-    return function createLatest ({ isActive, onNext, race, catcher, onComplete, }) {
+    return function createLatest ({ isActive, onNext, race, onError, onComplete, }) {
         let futures = [];
-        function resetToInitialState () {
-            futures = [];
-        }
         return {
             onComplete: function latestOnComplete () {
                 if (isActive()) {
-                    return race(Promise.all(futures.map(e => e.task()))).then(() => onComplete().then(resetToInitialState));
+                    return race(Promise.all(futures.map(e => e.task()))).then(onComplete);
                 } else {
-                    return onComplete().then(resetToInitialState);
+                    return onComplete();
                 }
             },
             onNext: function invokeOnNext (value, order) {
@@ -129,29 +127,29 @@ function latest ({ index, callback, name='latest', }) {
                     try {
                         futures = callback(value, futures);
                     } catch (e) {
-                        return catcher(e, { value, index, name, });
+                        return onError(e, { value, index, name, });
                     }
                     futures.push({ value, task () {
-                        return onNext(value, order);
-                    }, });
+                            return onNext(value, order);
+                        }, });
                 }
             },
         };
     };
 }
+
 function ordered ({ callback, index, name = 'ordered', }) {
-    return async function createOrdered ({ onNext, isActive, onComplete, race, catcher, }) {
+    return async function createOrdered ({ onNext, isActive, onComplete, race, onError, }) {
         let futures = {};
-        function resetToInitialState () {
-            futures = {};
-        }
         return {
             onNext: function invokeOrdered (value, order) {
                 if (isActive()) {
                     futures[order] = {
                         val: value,
                         task () {
-                            onNext(value, order);
+                            if (isActive()) {
+                                return onNext(value, order);
+                            }
                         },
                     };
                 }
@@ -162,18 +160,15 @@ function ordered ({ callback, index, name = 'ordered', }) {
                 while (runnables.length>index && isActive()) {
                     await race(runnables[index++]());
                 }
-                return onComplete().then(resetToInitialState);
+                return onComplete();
             },
         };
     };
 }
 
 function $default ({ params: { defaultValue, }, }) {
-    return function createDefault ({ onNext, onComplete, isActive, catcher, }) {
+    return function createDefault ({ onNext, onComplete, isActive, onError, }) {
         let isSet = false;
-        function resetToInitialState () {
-            isSet = false;
-        }
         return {
             onNext: function defaultOnNext (value, order) {
                 if (isActive()) {
@@ -185,22 +180,17 @@ function $default ({ params: { defaultValue, }, }) {
                 if (!isSet && isActive()) {
                     onNext(defaultValue, [ 0, ]);
                 }
-                return onComplete().then(resetToInitialState);
+                return onComplete();
             },
         };
     };
 }
 
 function parallel ({ index, params: { limit, }, }) {
-    return async function createParallel ({ onNext, isActive, onComplete, race, catcher,  }) {
+    return async function createParallel ({ onNext, isActive, onComplete, race, onError,  }) {
         let completeLater = [];
         let parallelCount = 0; // TODO add err handling
         let index = 0;
-        function resetToInitialState () {
-            completeLater = [];
-            parallelCount = 0; // TODO add err handling
-            index = 0;
-        }
         function decrementParallelCount () {
             parallelCount--;
         }
@@ -225,14 +215,14 @@ function parallel ({ index, params: { limit, }, }) {
                 }
             },
             onComplete: function parallelOnComplete () {
-                return Promise.all([ ...pending, completeRest(), ]).then(() => onComplete().then(resetToInitialState));
+                return Promise.all([ ...pending, completeRest(), ]).then(onComplete);
             },
         };
     };
 }
 
 function repeat ({ callback, name, index, params: { limit = 0, }, }) {
-    return async function createRepeat ({ onNext, isActive, onComplete, race, catcher,  }) {
+    return async function createRepeat ({ onNext, isActive, onComplete, race, onError,  }) {
         let tasks = [];
         return {
             onNext: function repeatOnNext (value, order) {
@@ -262,11 +252,8 @@ function repeat ({ callback, name, index, params: { limit = 0, }, }) {
     };
 }
 function delay ({ index, params: { getDelay, }, }) {
-    return function createDelay ({ onComplete, isActive, onNext, race, catcher,  }) {
+    return function createDelay ({ onComplete, isActive, onNext, race, onError,  }) {
         let delays = [];
-        function resetToInitialState () {
-            delays = [];
-        }
         async function createDelay (value, order) {
             await race(sleep(getDelay(value)));
             if (isActive()) {
@@ -281,47 +268,50 @@ function delay ({ index, params: { getDelay, }, }) {
                 }
             },
             onComplete: function delayOnComplete () {
-                return Promise.all(delays).then(() => onComplete().then(resetToInitialState));
+                return Promise.all(delays).then(onComplete);
             },
         };
     };
 }
 
 function $await ({ index, }) {
-    return function createAwait ({ onNext, isActive, race, onComplete, catcher, }) {
-        let promises = [];
-        function resetToInitialState () {
-            promises = [];
-        }
-        function applyAwait (value, order) {
-            const promise = race(value).then(value => isActive() && onNext(value, order));
-            promises.push(promise);
-            return promise;
+    return function createAwait ({ onNext, isActive, race, onComplete, onError, }) {
+        const promises = [];
+        async function applyAwait (value, order) {
+            let result;
+            try {
+                result = await value;
+            } catch (e) {
+                return onError(e, { value, index, name: 'await', });
+            }
+            onNext(result, order);
         }
         return {
             onNext: function awaitOnNext (value, order) {
                 if (isActive()) {
-                    return applyAwait(value, order);
+                    const promise = race(applyAwait(value, order));
+                    promises.push(promise);
+                    return promise;
                 }
             },
             onComplete: function awaitOnComplete () {
-                const toBeResolved = promises;
-                promises = [];
-                return Promise.all(toBeResolved).then(() => onComplete().then(resetToInitialState));
+                return Promise.all(promises).then(onComplete);
             },
         };
     };
 }
 
 function forEach ({ callback, index, }) {
-    return function createForEach ({ catcher, onNext, isActive, }) {
+    return function createForEach ({ onError, onNext, isActive, }) {
         return {
             onNext: function forEachOnNext (value, order) {
                 if (isActive()) {
                     try {
                         callback(value);
                     } catch (e) {
-                        return catcher(e, { index, name: 'forEach', value, });
+                        console.log('on error');
+                        console.log(onError.name);
+                        return onError(e, { index, name: 'forEach', value, });
                     }
                     return onNext(value, order);
                 }
@@ -331,7 +321,7 @@ function forEach ({ callback, index, }) {
 }
 
 function map ({ name = 'map', index, params: { createCallback, }, }) {
-    return function createMap ({ onNext, isActive, catcher,  }) {
+    return function createMap ({ onNext, isActive, onError,  }) {
         const callback = createCallback();
         return {
             onNext: function mapOnNext (value, order) {
@@ -340,7 +330,7 @@ function map ({ name = 'map', index, params: { createCallback, }, }) {
                     try {
                         out = callback(value);
                     } catch (e) {
-                        return catcher(e, { index, name, value, });
+                        return onError(e, { index, name, value, });
                     }
                     return onNext(out, order);
                 }
@@ -349,11 +339,8 @@ function map ({ name = 'map', index, params: { createCallback, }, }) {
     };
 }
 function generator ({ callback, name = 'generator', index, }) {
-    return function createGenerator ({ onNext, onComplete, race, isActive, catcher,  }) {
-        let toBeResolved = [];
-        function resetToInitialState () {
-            toBeResolved = [];
-        }
+    return function createGenerator ({ onNext, onComplete, race, isActive, onError,  }) {
+        const toBeResolved = [];
         async function generatorResolver (value, order = []) {
             let gen;
             gen = await callback(value);
@@ -367,7 +354,7 @@ function generator ({ callback, name = 'generator', index, }) {
                 try {
                     result = await race(gen.next(result.value));
                 } catch (e) {
-                    catcher(e, { value: gen, index, name, });
+                    onError(e, { value: gen, index, name, });
                     continue;
                 }
                 if (result && isActive()) {
@@ -388,40 +375,36 @@ function generator ({ callback, name = 'generator', index, }) {
                 }
             },
             onComplete: function generatorOnComplete () {
-                return Promise.all(toBeResolved).then(() => onComplete().then(resetToInitialState));
+                return Promise.all(toBeResolved).then(onComplete);
             },
         };
     };
 }
 function reducer ({ name, index, params: { initReducer, }, }) {
-    return function createReducer ({ isActive, onNext, onComplete, catcher,  }) {
+    return function createReducer ({ isActive, onNext, onComplete, onError,  }) {
         const { reduce, defaultValue, } = initReducer();
         let acc = defaultValue;
-        function resetToInitialState () {
-            acc = defaultValue;
-        }
         return {
             onNext: function reduceOnNext (value) {
                 if (isActive()) {
                     try {
                         acc = reduce(acc, value);
                     } catch (e) {
-                        return catcher(e, { index, name, value, });
+                        return onError(e, { index, name, value, });
                     }
                 }
             },
             onComplete: function reduceOnComplete () {
                 if (isActive()) onNext(acc, [ 0, ]);
-                return onComplete().then(resetToInitialState);
+                return onComplete();
             },
         };
     };
 }
 function postUpstreamFilter ({ name, index, params: { createCallback, }, }) {
-    return async function createPostUpstreamFilter ({ onNext, catcher, extendRace, }) {
+    return async function createPostUpstreamFilter ({ onNext, onError, extendRace, }) {
         const callback = createCallback();
         const { isActive, retire, ...rest } = await extendRace();
-                // TODO how to reset postlimiter?
         return {
             ...rest, isActive, retire,
             onNext: function postUptreamFilterOnNext (value, order) {
@@ -429,9 +412,9 @@ function postUpstreamFilter ({ name, index, params: { createCallback, }, }) {
                     const res = onNext(value, order);
                     let stop;
                     try {
-                        stop= callback(value);
+                        stop = callback(value);
                     } catch (e) {
-                        return catcher(e, { value, index, name, });
+                        return onError(e, { value, index, name, });
                     }
                     if (stop) {
                         retire();
@@ -445,7 +428,7 @@ function postUpstreamFilter ({ name, index, params: { createCallback, }, }) {
 }
 
 function preUpStreamFilter ({ index, name, params: { createCallback, }, }) {
-    return async function createPreUpStreamFilter ({ onNext, extendRace, catcher, }) {
+    return async function createPreUpStreamFilter ({ onNext, extendRace, onError, }) {
         const callback = createCallback();
         const { isActive, retire, ...rest } = await extendRace(); // TODO how to reset pre upstream limiter?
         return {
@@ -458,7 +441,7 @@ function preUpStreamFilter ({ index, name, params: { createCallback, }, }) {
                     try {
                         accept = callback(value);
                     } catch (e) {
-                        return catcher(e, { value, index, name, });
+                        return onError(e, { value, index, name, });
                     }
                     if (accept) {
                         return onNext(value, order);
@@ -472,36 +455,38 @@ function preUpStreamFilter ({ index, name, params: { createCallback, }, }) {
 }
 
 function $catch ({ callback, index, }) {
-    return function createCatch ({ catcher, }) {
+    return function createCatch ({ onError, }) {
         return {
-            catcher: function onCatch (error, { name, value, index: subjectIndex, continuousError= [], }) {
+            onError: function onCatch (error, { name, value, index: subjectIndex, continuousError= [], }) {
+                console.log('on error');
                 const debugFriendlyInfo = { name, value: value === undefined ? '$undefined': value, index: subjectIndex, continuousError, };
                 try {
                     callback(error, debugFriendlyInfo);
                 } catch (e) {
                     continuousError.push({ value: e, index, name: 'catch', });
-                    catcher(e, debugFriendlyInfo);
+                    onError(e, debugFriendlyInfo);
                 }
             },
         };
     };
 }
+
 module.exports = {
-    $catch,
     $default,
     $await,
-    forEach,
     parallel,
     delay,
-    reduce: reducer,
-    map,
-    postUpstreamFilter,
+    reducer,
     preUpStreamFilter,
     generator,
-    filter,
     ordered,
     endReducer,
     provider,
     repeat,
     latest,
+    $catch,
+    postUpstreamFilter,
+    map,
+    forEach,
+    filter,
 };

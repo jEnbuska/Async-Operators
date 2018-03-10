@@ -1,5 +1,6 @@
 const Operator = require('./src/Operator');
-const { provider: createProvider, } = require('./src/middlewareCreators');
+const Emitter = require('./src/Emitter');
+const { provider: createProvider, } = require('./src/middlewares');
 const { createGeneratorFromIterator, createIntegerRange, ASC, DESC, }= require('./src/utils');
 
 function provider (param = {}) {
@@ -21,8 +22,13 @@ function provider (param = {}) {
     throw new Error('Provider Expect to receive an object with key "map", "flatten", "range" or "generator"');
 }
 
+function emitter () {
+    return new Emitter();
+}
+
 module.exports = {
     provider,
+    emitter,
     ASC,
     DESC,
 };

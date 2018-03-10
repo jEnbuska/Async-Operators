@@ -25,6 +25,7 @@ describe('race', () => {
     });
 
     test('await should stop resolving values after cancelled', async() => {
+
         const intermediate = [];
         const before = Date.now();
         const results = await provider({
@@ -55,15 +56,11 @@ describe('race', () => {
                 yield 60;
             },
         })
-            .forEach(it => console.log(it))
             .map(int => sleepAndReturn(int, int))
-            .forEach(it => console.log(it))
             .ordered()
             .await()
-            .forEach(it => console.log(it))
             .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
-            .forEach(it => console.log(it))
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
         expect(intermediate).toEqual([ 10, 20, ]);
@@ -78,11 +75,10 @@ describe('race', () => {
             async * generator () {
                 yield 10;
                 yield 20;
-                yield 30;
+                yield 50;
             },
         })
             .map(int => sleepAndReturn(int, int))
-            .sort()
             .await()
             .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)
@@ -90,12 +86,11 @@ describe('race', () => {
             .pull();
         expect(intermediate).toEqual([ 10, 20, ]);
         expect(results).toEqual([ 10, ]);
-        expect((Date.now() - before)<35).toBe(true);
+        expect((Date.now() - before)<40).toBe(true);
     });
 
     test('reverse should stop resolving values after cancelled', async() => {
         const intermediate = [];
-        const before = Date.now();
         const results = await provider({
             async * generator () {
                 yield 10;
@@ -110,12 +105,12 @@ describe('race', () => {
             .takeUntil(it => it===20)
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
-        expect(intermediate).toEqual([ 10, 20, ]);
-        expect(results).toEqual([ 10, ]);
-        expect((Date.now() - before)<35).toBe(true);
+        expect(intermediate).toEqual([ 30, 20, ]);
+        expect(results).toEqual([ 30, ]);
     });
 
     test('delay should stop resolving values after cancelled', async() => {
+
         const intermediate = [];
         const before = Date.now();
         const results = await provider({
@@ -134,6 +129,7 @@ describe('race', () => {
             .pull();
         expect(intermediate).toEqual([ 10, 20, ]);
         expect(results).toEqual([ 10, ]);
+
         expect((Date.now() - before)<35).toBe(true);
     });
     test('parallel should stop resolving values after cancelled', async() => {
