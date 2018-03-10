@@ -148,3 +148,18 @@ const result = await provider({value: 1})
   .pull()
 console.log(result); // 'NOT_SET' 
 ```
+## callback additional arguments
+```
+await provider({
+    async callback({onNext, onComplete, isActive, race}){
+        const result = await race(doSomeLongRunningTask()) 
+        // if downstream is cancelled the promise gets resolves before the result
+        if(isActive()){ // returns true when downstream is active
+            onNext(result);
+        }
+        onComplete()
+    }
+}})
+.takeWhile(value => {/*predicate*/})
+.pull();
+```

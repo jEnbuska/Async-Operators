@@ -19,6 +19,7 @@ function provider ({ index = 0, callback, params: { type, }, }) {
                     const { resolve, promise, } = await createResolvable();
                     const toBeResolved = [];
                     callback({
+                        race,
                         isActive,
                         onNext: function callbackOnNext (value) {
                             if (isActive()) {
@@ -130,8 +131,8 @@ function latest ({ index, callback, name='latest', }) {
                         return onError(e, { value, index, name, });
                     }
                     futures.push({ value, task () {
-                            return onNext(value, order);
-                        }, });
+                        return onNext(value, order);
+                    }, });
                 }
             },
         };
