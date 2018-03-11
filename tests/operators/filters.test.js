@@ -42,7 +42,7 @@ describe('filter operators', () => {
                 { name: 'Lisa', age: 20, gender: 'female', },
                 { name: 'John', age: 20, gender: 'female', },
         ], })
-            .distinctBy('name', 'gender')
+            .distinctBy([ 'name', 'gender', ])
             .reduce((acc, person) => [ ...acc, person, ], [])
             .pull();
         expect(results).toEqual([

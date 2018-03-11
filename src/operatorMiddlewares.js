@@ -198,10 +198,10 @@ function prepareRepeat ({ callback, name, index, params: { limit = 0, }, }) {
 function prepareReduce ({ name, index, callback, params: { acc, }, }) {
     return function createReducer ({ isActive, onNext, onComplete, onError,  }) {
         return {
-            onNext: function reduceOnNext (value) {
+            onNext: function reduceOnNext (value, order, scope) {
                 if (isActive()) {
                     try {
-                        acc = callback(acc, value);
+                        acc = callback(acc, value, scope);
                     } catch (e) {
                         return onError(e, { index, name, value, });
                     }

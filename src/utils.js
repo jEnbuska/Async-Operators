@@ -204,9 +204,9 @@ function createCustomReducer (callback) {
         return callback(acc, val);
     };
 }
-function createSumReducer () {
+function createSumReducer (mapper) {
     return function sumReducer (acc, val) {
-        acc +=val;
+        acc +=mapper(val);
         return acc;
     };
 }
@@ -268,18 +268,6 @@ function createDistinctFilter () {
             return true;
         }
         return false;
-    };
-}
-
-function createNegatePredicate (predicate) {
-    return function negatePredicate (val) {
-        return !predicate(val);
-    };
-}
-
-function createScanMapper (callback, acc) {
-    return function scanMapper (val) {
-        return acc = callback(acc, val);
     };
 }
 
@@ -373,7 +361,7 @@ function createGeneratorFromIterator (createIterator = Object.values) {
     };
 }
 
-function createResolvable (callback) {
+function createResolvable () {
     return new Promise(returnResolvable => {
         const _promise = new Promise(res => {
             let resolved = false;
@@ -391,6 +379,19 @@ function createResolvable (callback) {
             });
         });
     });
+}
+
+function createGetDelay(from){
+    if (Number.isInteger(from)) {
+        return () => from;
+    } else if (typeof from=== 'function') {
+        return from;
+    } else {
+        try {
+            console.error({ ms: from, });
+        } catch (e) {}
+        throw new Error('Invalid delay passed to delay middleware');
+    }
 }
 
 module.exports = {
@@ -413,9 +414,7 @@ module.exports = {
     createPickMapper,
     createOmitMapper,
     createDistinctFilter,
-    createNegatePredicate,
     createSumReducer,
-    createScanMapper,
     createTakeLimiter,
     createFirstEndResolver,
     createSomeEndResolver,
@@ -427,4 +426,5 @@ module.exports = {
     sleep,
     createLatestTaskFilter,
     createResolvable,
+    createGetDelay,
 };

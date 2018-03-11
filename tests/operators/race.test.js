@@ -9,7 +9,7 @@ describe('race', () => {
         const results = await provider({
             async * generator () {
                 yield 1;
-                yield await sleepAndReturn(100, 2);
+                yield await sleepAndReturn(10, 2);
                 await sleep(10);
                 expect(true).toBeFalsy();// should never reach this
                 yield await sleepAndReturn(100, 3);
@@ -19,7 +19,7 @@ describe('race', () => {
             .takeUntil(it => it===2)
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
-        expect((Date.now() - before)<150).toBe(true);
+        expect((Date.now() - before)<100).toBeTruthy();
         await sleep(20); // ensure line 4 in generator is never reached
         expect(intermediate).toEqual([ 1, 2, ]);
         expect(results).toEqual([ 1, ]);
@@ -150,6 +150,6 @@ describe('race', () => {
             .pull();
         expect(intermediate).toEqual([ 10, 20, ]);
         expect(results).toEqual([ 10, ]);
-        expect((Date.now() - before)<50).toBe(true);
+        expect((Date.now() - before)<100).toBeTruthy();
     });
 });

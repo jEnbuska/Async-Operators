@@ -38,19 +38,25 @@ function prepareParallel ({ index, params: { limit, }, }) {
 }
 
 // Ok for emitter
-function prepareDelay ({ index, params: { getDelay, }, }) {
+function prepareDelay ({ index, callback, name ='delay', }) {
     return function createDelay ({ onComplete, isActive, onNext, race, onError,  }) {
         let delays = [];
-        async function createDelay (value, order) {
-            await race(sleep(getDelay(value)));
+        async function createDelay (value, order, scope) {
+            let delay;
+            try {
+                delay = callback(value, scope);
+            } catch (e) {
+                return onError({ value, index, order, scope, name, });
+            }
+            await race(sleep(delay));
             if (isActive()) {
                 return onNext(value, order);
             }
         }
         return {
-            onNext: function delayOnNext (value, order) {
+            onNext: function delayOnNext (value, order, scope) {
                 if (isActive()) {
-                    delays.push(createDelay(value, order));
+                    delays.push(createDelay(value, order, scope));
                     return delays[delays.length-1];
                 }
             },

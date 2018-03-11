@@ -37,7 +37,7 @@ function prepareForEach ({ callback, index, }) {
     };
 }
 
-function prepareMap ({ name = 'map', callback, index, params: { createCallback, }, }) {
+function prepareMap ({ name = 'map', callback, index, }) {
     return function createMap ({ onNext, isActive, onError,  }) {
         return {
             onNext: function mapOnNext (value, order, scope) {
@@ -55,7 +55,8 @@ function prepareMap ({ name = 'map', callback, index, params: { createCallback, 
     };
 }
 
-function prepareCatch ({ callback, index, }) {
+function prepareCatch ({ callback, index, name = 'catch', }) {
+    const catcherName = name;
     return function createCatch ({ onError, }) {
         return {
             onError: function onCatch (error, { name, value, index: subjectIndex, continuousError= [], scope, }) {
@@ -63,7 +64,7 @@ function prepareCatch ({ callback, index, }) {
                 try {
                     callback(error, errorDescription);
                 } catch (e) {
-                    continuousError.push({ value: e, index, name: 'catch', scope, });
+                    continuousError.push({ value: e, index, name: catcherName, scope, });
                     onError(e, errorDescription);
                 }
             },
@@ -71,9 +72,8 @@ function prepareCatch ({ callback, index, }) {
     };
 }
 
-function preparePreUpStreamFilter ({ index, name, params: { createCallback, }, }) {
+function preparePreUpStreamFilter ({ index, name, callback, }) {
     return async function createPreUpStreamFilter ({ onNext, extendRace, onError, }) {
-        const callback = createCallback();
         const { isActive, retire, ...rest } = await extendRace(); // TODO how to reset pre upstream limiter?
         return {
             ...rest,
@@ -98,9 +98,8 @@ function preparePreUpStreamFilter ({ index, name, params: { createCallback, }, }
     };
 }
 
-function preparePostUpstreamFilter ({ name, index, params: { createCallback, }, }) {
+function preparePostUpstreamFilter ({ name, index, callback, }) {
     return async function createPostUpstreamFilter ({ onNext, onError, extendRace, }) {
-        const callback = createCallback();
         const { isActive, retire, ...rest } = await extendRace();
         return {
             ...rest, isActive, retire,

@@ -22,7 +22,7 @@ describe('delay emitter', () => {
 
         expect(intermediate).toEqual([ 'delay_1', 'delay_2', ]);
         expect(lastScannedValue).toEqual([ 'delay_1', ]);
-        expect((Date.now() - before)<50).toBe(true);
+        expect((Date.now() - before)<100).toBeTruthy();
     });
 
 });

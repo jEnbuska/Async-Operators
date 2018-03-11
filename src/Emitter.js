@@ -1,9 +1,6 @@
 const createRace = require('./compositeRace');
-const { createFirstEndResolver,
-    createSkipWhileFilter,
+const { createSkipWhileFilter,
     createTakeLimiter,
-    createScanMapper,
-    createNegatePredicate,
     createDistinctFilter,
     createDistinctByFilter,
     createOmitMapper,
@@ -12,34 +9,42 @@ const { createFirstEndResolver,
     createWhereFilter,
     createTakeUntilFilterResolver,
     createTakeWhileFilterResolver,
+    createGetDelay,
     createGeneratorFromIterator, } = require('./utils');
 /* eslint-disable consistent-return */
 const { prepareAwait, prepareParallel,  prepareGenerator, prepareDelay,  } = require('./middlewares');
 const { prepareCatch, prepareFilter,  prepareMap, prepareForEach, preparePreUpStreamFilter, preparePostUpstreamFilter, } = require('./emitterMiddlewares');
 
+const ON_NEXT = Symbol('onNext');
+const RETIRE = Symbol('retire');
+const ORDER = Symbol('order');
 class Emitter {
 
-    static _order = -1;
+    static [ORDER]= -1;
 
     constructor (middlewares = []) {
         this._middlewares = middlewares;
+        this.listen = this.listen.bind(this);
+        this.retire = this.retire.bind(this);
+        this.emit = this.emit.bind(this);
     }
 
     async listen () {
         const puller = await Emitter._createTail();
         const { onNext, retire, } = await this._createMiddlewares(puller);
-        this._retire = retire;
-        this._onNext = onNext;
+        this[RETIRE] = retire;
+        this[ON_NEXT] = onNext;
         return this;
     }
 
-    emit = async (value, scope) => {
-        if (!this._onNext) {
-            throw new Error('cannot emit values to emitters that are not listening');
-        }
-        Emitter._order = Emitter._order+1;
-        return this._onNext(value, [ Emitter._order, ], scope);
-    };
+    retire () {
+        this[RETIRE]();
+    }
+
+    async emit (value, scope = {}) {
+        if (!this[ON_NEXT]) throw new Error('cannot emit values to emitters that are not listening');
+        return this[ON_NEXT](value, [ Emitter[ORDER] = Emitter[ORDER]+1, ], scope);
+    }
 
     static async _createTail () {
         const { retire, isActive, ...rest }= await createRace();
@@ -67,18 +72,13 @@ class Emitter {
 
     // delays
     delay (timingMs = 0) {
-        let getDelay;
-        if (Number.isInteger(timingMs)) {
-            getDelay =  () => timingMs;
-        } else if (typeof timingMs === 'function') {
-            getDelay = timingMs;
-        } else {
-            try {
-                console.error({ ms: timingMs, });
-            } catch (e) {}
-            throw new Error('Invalid delay passed to delay middleware');
-        }
-        return this._create({ operator: prepareDelay, params: { getDelay, }, });
+        const callback = createGetDelay(timingMs);
+        return this._create({ operator: prepareDelay, callback, });
+    }
+
+    $delay (createTiming) {
+        const callback = (value, scope) => (createGetDelay(createTiming(scope))());
+        return this._create({ operator: prepareDelay, callback, });
     }
 
     // generators
@@ -92,9 +92,19 @@ class Emitter {
         return this._create({ operator: prepareGenerator, callback: producer, });
     }
 
-    flatten (createArray) {
-        const callback = createGeneratorFromIterator(createArray);
+    $generator (createProducer) {
+        const callback = (value, scope) => createProducer(scope)(value);
+        return this._create({ operator: prepareGenerator, callback, name: '$generator', });
+    }
+
+    flatten (iterator) {
+        const callback = createGeneratorFromIterator(iterator);
         return this._create({ operator: prepareGenerator, callback, name: 'flatten', });
+    }
+
+    $flatten (createIterator) {
+        const callback = (value, scope) => createIterator(scope)(createGeneratorFromIterator(value));
+        return this._create({ operator: prepareGenerator, callback, name: '$flatten', });
     }
 
     keys () {
@@ -116,78 +126,105 @@ class Emitter {
     map (callback) {
         return this._create({ operator: prepareMap, callback, });
     }
-    $map (mapper) {
-        const createCallback = () => mapper;
-        return this._create({ operator: prepareMap, params: { createCallback, }, });
+    $map (createMapper = (scope) => () => scope) {
+        const callback = (value, scope) => createMapper(scope)(value);
+        return this._create({ operator: prepareMap, callback, name: '$map', });
     }
-    pick (...keys) {
+    pick (keys) {
         const callback = createPickMapper(keys);
         return this._create({ operator: prepareMap, callback, name: 'pick', });
     }
-    omit (...keys) {
+    $pick (createKeys) {
+        const callback= (value, scope) => createOmitMapper(createKeys(scope));
+        return this._create({ operator: prepareMap, callback, name: '$pick', });
+    }
+    omit (keys) {
         const callback= createOmitMapper(keys);
         return this._create({ operator: prepareMap, callback, name: 'omit', });
     }
-    // NEVER CHANGE THE VALUE OF ACC
+    $omit (createKeys) {
+        const callback= (value, scope) => createOmitMapper(createKeys(scope));
+        return this._create({ operator: prepareMap, callback, name: '$omit', });
+    }
     scan (scanner, acc = 0) {
-        const callback= createScanMapper(scanner, acc);
+        const callback= (value) => acc = scanner(acc, value);
         return this._create({ operator: prepareMap, callback, name: 'scan', });
     }
 
-    // filter
-    filter (callback= Boolean) {
-        return this._create({ operator: prepareFilter, callback, });
+    $scan (createScanner, acc = 0) {
+        const callback = (value, scope) => acc = createScanner(scope)(value, acc);
+        return this._create({ operator: prepareMap, callback, name: '$scan', });
     }
 
+    // filter
+    filter (predicate= Boolean) {
+        const callback = (value) => predicate(value);
+        return this._create({ operator: prepareFilter, callback, });
+    }
+    $filter (createPredicate) {
+        const callback = (value, scope) => createPredicate(scope)(value);
+        return this._create({ operator: prepareFilter, callback, });
+    }
     reject (predicate) {
-        const callback = createNegatePredicate(predicate);
+        const callback = (value) => !predicate(value);
         return this._create({ operator: prepareFilter, callback, name: 'reject', });
+    }
+    $reject (scopePredicate) {
+        const callback = (value, scope) => !scopePredicate(scope)(value);
+        return this._create({ operator: prepareFilter, callback, name: 'reject', });
+    }
+    distinctBy (keys) {
+        const callback = createDistinctByFilter(keys);
+        return this._create({ operator: prepareFilter,  callback, name: 'distinctBy', });
+    }
+    $distinctBy (createKeys) {
+        const callback = (value, scope) => createDistinctByFilter(createKeys(scope));
+        return this._create({ operator: prepareFilter,  callback, name: 'distinctBy', });
+    }
+    where (obj) {
+        const callback = createWhereFilter(obj);
+        return this._create({ operator: prepareFilter, callback, name: 'where', });
+    }
+    $where (createObjectTemplate) {
+        const callback = (value, scope) => createWhereFilter(createObjectTemplate(scope));
+        return this._create({ operator: prepareFilter, callback, name: 'where', });
     }
     distinct () {
         const callback = createDistinctFilter();
         return this._create({ operator: prepareFilter, callback, name: 'distinct', });
     }
-    distinctBy (...params) {
-        const callback = createDistinctByFilter(params);
-        return this._create({ operator: prepareFilter,  callback, name: 'distinctBy', });
-    }
     skip (count = 0) {
         const callback = createSkipFilter(count);
         return this._create({ operator: prepareFilter, callback, name: 'skip', });
-    }
-    where (obj) {
-        const callback = createWhereFilter(obj);
-        return this._create({ operator: prepareFilter, callback, name: 'where', });
     }
     skipWhile (predicate) {
         const callback = createSkipWhileFilter(predicate);
         return this._create({ operator: prepareFilter, callback, name: 'skipWhile', });
     }
 
-    // endReducer
-    first () {
-        const { callback, defaultValue, }= createFirstEndResolver();
-        return this._create({ operator: endReducer, callback, params: { defaultValue, }, name: 'first', });
-    }
-
     // upStreamFilters
     takeWhile (predicate) {
-        const createCallback = () => createTakeWhileFilterResolver(predicate);
-        return this._create({ operator: preparePreUpStreamFilter, name: 'takeWhile', params: { createCallback, }, });
+        const callback = createTakeWhileFilterResolver(predicate);
+        return this._create({ operator: preparePreUpStreamFilter, callback, name: 'takeWhile', });
     }
     takeUntil (predicate) {
-        const createCallback = () => createTakeUntilFilterResolver(predicate);
-        return this._create({ operator: preparePreUpStreamFilter, name: 'takeUntil', params: { createCallback, }, });
+        const callback = createTakeUntilFilterResolver(predicate);
+        return this._create({ operator: preparePreUpStreamFilter, callback, name: 'takeUntil',  });
     }
 
     // postUpstreamFilters
     take (max) {
-        const createCallback = () => createTakeLimiter(max);
-        return this._create({ operator: preparePostUpstreamFilter, name: 'take', params: { createCallback, }, });
+        const callback = createTakeLimiter(max);
+        return this._create({ operator: preparePostUpstreamFilter, callback, name: 'take', });
     }
 
-    // peekers
+    // forEach
     forEach (callback) {
+        return this._create({ operator: prepareForEach, callback: (value) => callback(value), });
+    }
+
+    $forEach (createCallback) {
+        const callback = (value, scope) => createCallback(scope)(value);
         return this._create({ operator: prepareForEach, callback, });
     }
 
@@ -201,16 +238,23 @@ class Emitter {
         return this._create({ operator: prepareCatch, callback, });
     }
 
+    $catch (createCallback) {
+        const callback = (value, scope) => createCallback(scope)(value);
+        return this._create({ operator: prepareCatch, callback, name: '$catch', });
+    }
+
     // parallel
     parallel (limit = NaN) {
         return this._create({ operator: prepareParallel, params: { limit, }, });
     }
 
     _create ({ operator, callback, params = {}, name, }) {
-        const { _middlewares, } = this;
+        const { _middlewares, [ON_NEXT]: onNext, } = this;
+        if (onNext) throw new Error('Cannot extend initialized emitter');
         const index = _middlewares.length;
         const md = operator({ callback, params, name, index, emitter: true, });
-        return new Emitter([ ..._middlewares, md, ]);
+        _middlewares.push(md);
+        return this;
     }
 }
 module.exports = Emitter;

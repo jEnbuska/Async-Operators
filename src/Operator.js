@@ -26,6 +26,10 @@ class Operator extends Emitter {
         throw new Error('Operators cannot emit values');
     }
 
+    retire () {
+        throw new Error('Operators cannot be manually retired');
+    }
+
     async pull (..._) {
         if (_.length) {
             throw new Error('"pull" should be called without parameters.');
@@ -53,16 +57,27 @@ class Operator extends Emitter {
         return this._create({ operator: prepareReduce, callback, params: { acc, }, });
     }
 
-    groupBy (...keys) {
-        const callback = createGroupByReducer(keys)
+    $reduce (createReducer, acc) {
+        const callback = (value, acc, scope) => createCustomReducer(scope)(value, acc);
+        return this._create({ operator: prepareReduce, callback, params: { acc, }, });
+    }
+
+    groupBy (keys) {
+        const callback = createGroupByReducer(keys);
         const acc = {};
         return this._create({ operator: prepareReduce, callback, name: 'groupBy', params: { acc, }, });
     }
 
-    sum () {
-        const callback = createSumReducer();
+    sum (accumulator= numb => numb) {
+        const callback = createSumReducer(accumulator);
         const acc = 0;
         return this._create({ operator: prepareReduce, callback, name: 'sum', params: { acc, }, });
+    }
+
+    $sum (createAccumulator) {
+        const callback = (value, scope) => createSumReducer(createAccumulator(scope))(value);
+        const acc = 0;
+        return this._create({ operator: prepareReduce, callback, name: '$sum', params: { acc, }, });
     }
 
     min (comparator = defaultComparator) {
@@ -71,13 +86,24 @@ class Operator extends Emitter {
         return this._create({ operator: prepareReduce, callback, name: 'min', params: { acc, }, });
     }
 
+    $min (createComparator) {
+        const callback = (value, scope) => createMinReducer(createComparator(scope))(value);
+        const acc =  undefined;
+        return this._create({ operator: prepareReduce, callback, name: '$min', params: { acc, }, });
+    }
+
     max (comparator = defaultComparator) {
         const callback = createMaxReducer(comparator);
         const acc = undefined;
         return this._create({ operator: prepareReduce,  callback, name: 'max', params: { acc, }, });
     }
+    $max (createComparator) {
+        const callback = (value, scope) => createMaxReducer(createComparator(scope))(value);
+        const acc = undefined;
+        return this._create({ operator: prepareReduce,  callback, name: '$max', params: { acc, }, });
+    }
 
-    latestBy (...keys) {
+    latestBy (keys) {
         const callback = createLatestTaskFilter(keys);
         return this._create({ operator: prepareLatest, callback, name: 'latestBy', });
     }
@@ -110,6 +136,7 @@ class Operator extends Emitter {
         const { callback, defaultValue, } = createEveryEndResolver(predicate);
         return this._create({ operator: prepareEndReduce, callback, params: { defaultValue, }, name: 'every', });
     }
+
     some (predicate = defaultFilter) {
         const { callback, defaultValue, } = createSomeEndResolver(predicate);
         return this._create({ operator: prepareEndReduce, callback, params: { defaultValue, }, name: 'some', });

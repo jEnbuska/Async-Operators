@@ -87,7 +87,7 @@ describe('misc tests', () => {
 
     test('pick', async() => {
         const result = await provider({ flatten: [ { name: 'Lisa', age: 20, gender: 'female', }, { name: 'John', age: 20, gender: undefined, }, { name: 'John', age: 25, gender: 'male', }, ], })
-            .pick('age', 'gender')
+            .pick([ 'age', 'gender', ])
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
         expect(result).toEqual([ { age: 20, gender: 'female', }, { age: 20, gender: undefined, }, { age: 25, gender: 'male', }, ]);
@@ -95,7 +95,7 @@ describe('misc tests', () => {
 
     test('distinctBy one key', async() => {
         const result = await provider({ flatten: [ { name: 'Lisa', age: 20, gender: 'female', }, { name: 'John', age: 20, gender: undefined, }, { name: 'John', age: 25, gender: 'male', }, ], })
-            .distinctBy('name')
+            .distinctBy([ 'name', ])
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
         expect(result).toEqual([ { name: 'Lisa', age: 20, gender: 'female', }, { name: 'John', age: 20, gender: undefined, }, ]);
@@ -103,7 +103,7 @@ describe('misc tests', () => {
 
     test('distinctBy multipleKeys', async() => {
         const result = await provider({ flatten: [ { name: 'Lisa', age: 20, }, { name: 'Lisa', age: 20, }, { name: 'Lisa', age: 25, }, ], })
-            .distinctBy('name', 'age')
+            .distinctBy([ 'name', 'age', ])
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
         expect(result).toEqual([ { name: 'Lisa', age: 20, }, { name: 'Lisa', age: 25, }, ]);
@@ -111,7 +111,7 @@ describe('misc tests', () => {
 
     test('distinctBy multipleKeys', async() => {
         const result = await provider({ flatten: [ { name: 'Lisa', age: 20, }, { name: 'Lisa', age: 20, }, { name: 'Lisa', age: 25, }, ], })
-            .distinctBy('name', 'age')
+            .distinctBy([ 'name', 'age', ])
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
         expect(result).toEqual([ { name: 'Lisa', age: 20, }, { name: 'Lisa', age: 25, }, ]);
@@ -167,7 +167,7 @@ describe('misc tests', () => {
 
     test('omit', async () => {
         const result = await provider({ flatten: [ { a: 1, b: 2, c: 3, d: 4, }, { a: 5, b: 6, c: 7, d: 8, }, { a: 9, b: 10, c: 11, d: 12, }, { a: 13, b: 14, c: 3, d: 15, }, ], })
-            .omit('a', 'c')
+            .omit([ 'a', 'c', ])
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
         expect(result).toEqual([ { b: 2, d: 4, }, { b: 6, d: 8, }, { b: 10, d: 12, }, { b: 14, d: 15, }, ]);
@@ -180,7 +180,7 @@ describe('misc tests', () => {
         expect(result).toBe(-1);
     });
 
-    test('min', async () => {
+    test('max', async () => {
         const result = await provider({ flatten: [ 1, 2, 3, -1, ], })
             .max()
             .pull();
