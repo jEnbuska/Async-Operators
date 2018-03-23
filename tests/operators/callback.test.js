@@ -1,5 +1,5 @@
 import { provider, } from '../../';
-import { sleep, } from '../common';
+import { sleep, createDuration, } from '../common';
 
 describe('provider from callback', () => {
 
@@ -12,7 +12,6 @@ describe('provider from callback', () => {
             await sleep(10);
             onNext(3);
         }
-
         const results = await provider({
             async callback ({ onNext, onComplete, }) {
                 await oneTwoThree(onNext);

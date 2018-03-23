@@ -1,26 +1,26 @@
 const createRace = require('../src/compositeRace');
-const { sleep, } = require('./common');
+const { sleep, createDuration, } = require('./common');
 
 describe('compositeRace', () => {
-    describe('retire', () => {
+    describe('resolve', () => {
         test('singleton race', async () => {
-            const { race, retire, isActive, promise, } = await createRace();
-            const before = Date.now();
-            const racePromise = race(new Promise(res => setTimeout(res, 500)));
+            const { compete, resolve, isActive, promise, } = await createRace();
+            const getDuration = createDuration();
+            const racePromise = compete(new Promise(res => setTimeout(res, 500)));
             await sleep(5);
             expect(isActive()).toBe(true);
-            expect(retire()).toBe(0);
+            expect(resolve()).toBe(0);
             let resolvedRes;
             promise.then((rid) => resolvedRes = rid);
             await racePromise;
-            expect((Date.now()-before)<200).toBe(true);
+            expect(getDuration().time<200).toBe(true);
             expect(isActive()).toBe(false);
             await sleep(5);
             expect(resolvedRes).toBe(0);
         });
 
         test('first should resolve second race', async () => {
-            const { isActive, retire, extendRace,  promise, } = await createRace();
+            const { isActive, resolve, extendRace,  promise, } = await createRace();
             const { isActive: isActive2, promise: promise2, } = await extendRace();
             await sleep(5);
             let resolvedRes = false;
@@ -33,7 +33,7 @@ describe('compositeRace', () => {
 
             expect(isActive()).toBe(true);
             expect(isActive2()).toBe(true);
-            const raceRid = await retire();
+            const raceRid = await resolve();
             expect(raceRid).toBe(0);
             expect(isActive()).toBe(false);
             expect(isActive2()).toBe(false);
@@ -43,7 +43,7 @@ describe('compositeRace', () => {
         });
 
         test('first race should resolve second and third race', async () => {
-            const { isActive, retire, extendRace, promise, } = await createRace();
+            const { isActive, resolve, extendRace, promise, } = await createRace();
             const { isActive: isActive2, extendRace: extendRace2, promise: promise2, } = await extendRace();
             const { isActive: isActive3, promise: promise3, } = await extendRace2();
             await sleep(5);
@@ -62,7 +62,7 @@ describe('compositeRace', () => {
             expect(isActive2()).toBe(true);
             expect(isActive3()).toBe(true);
 
-            expect(await retire()).toBe(0);
+            expect(await resolve()).toBe(0);
             expect(isActive()).toBe(false);
             expect(isActive2()).toBe(false);
             expect(isActive3()).toBe(false);
@@ -74,7 +74,7 @@ describe('compositeRace', () => {
 
         test('second race should resolve second and third race, but not first case', async () => {
             const { isActive, extendRace, promise, } = await createRace();
-            const { isActive: isActive2, retire: retire2, extendRace: extendRace2, promise: promise2, } = await extendRace();
+            const { isActive: isActive2, resolve: resolve2, extendRace: extendRace2, promise: promise2, } = await extendRace();
             const { isActive: isActive3, promise: promise3, } = await extendRace2();
             let resolvedRes;
             promise.then((rid) => resolvedRes = rid);
@@ -85,7 +85,7 @@ describe('compositeRace', () => {
             expect(isActive()).toBe(true);
             expect(isActive2()).toBe(true);
             expect(isActive3()).toBe(true);
-            expect(await retire2()).toBe(1);
+            expect(await resolve2()).toBe(1);
             expect(isActive()).toBe(true);
             expect(isActive2()).toBe(false);
             expect(isActive3()).toBe(false);
@@ -98,7 +98,7 @@ describe('compositeRace', () => {
         test('third should resolve first and second race', async () => {
             const { isActive, extendRace,  promise, } = await createRace();
             const { isActive: isActive2, extendRace: extendRace2, promise: promise2, } = await extendRace();
-            const { isActive: isActive3, retire, promise: promise3, } = await extendRace2();
+            const { isActive: isActive3, resolve, promise: promise3, } = await extendRace2();
             let resolvedRes;
             promise.then((rid) => resolvedRes = rid);
             let resolvedRes2;
@@ -109,7 +109,7 @@ describe('compositeRace', () => {
             expect(isActive()).toBe(true);
             expect(isActive2()).toBe(true);
             expect(isActive3()).toBe(true);
-            const raceRid = await retire();
+            const raceRid = await resolve();
             expect(raceRid).toBe(2);
             expect(isActive()).toBe(true);
             expect(isActive2()).toBe(true);
@@ -122,9 +122,9 @@ describe('compositeRace', () => {
     });
     describe('cancelCurrentStream', () => {
         test('singleton race', async () => {
-            const { race, cancelCurrentStream, isActive, promise, } = await createRace();
+            const { compete, cancelCurrentStream, isActive, promise, } = await createRace();
             const before = Date.now();
-            const racePromise = race(new Promise(res => setTimeout(res, 500)));
+            const racePromise = compete(new Promise(res => setTimeout(res, 500)));
             await sleep(5);
             expect(isActive()).toBe(true);
             expect(cancelCurrentStream()).toBe(0);

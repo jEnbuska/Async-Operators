@@ -95,9 +95,7 @@ describe('parallel tests', () => {
         }).parallel(2)
             .forEach(() => upper+=3)
             .forEach(() => {
-                if (upperMax<upper) {
-                    upperMax=upper;
-                }
+                if (upperMax<upper)upperMax=upper;
             })
             .flatten()
             .delay(5)

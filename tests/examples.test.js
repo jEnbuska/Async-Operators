@@ -1,5 +1,5 @@
 const { provider, } = require('../');
-const { sleepAndReturn, } = require('./common');
+const { sleepAndReturn, createDuration, } = require('./common');
 
 describe('examples', async () => {
     test('parallel map, distinct and filter', async () => {
@@ -20,7 +20,6 @@ describe('examples', async () => {
             .take(2) // stops all downstreams operations when limit is hit
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
-
         expect(names).toEqual([ 'John', 'Doe', ]);
     });
 

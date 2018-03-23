@@ -62,11 +62,11 @@ function createDistinctByFilter (keys) {
     };
 }
 
-function createLatestTaskFilter (keys) {
+function createLastTaskFilter (keys) {
     if (!keys.length) {
         console.error(keys); throw new Error('Invalid parameter passed to historyComparator');
     }
-    return function latestByFilter (value, futures) {
+    return function lastByFilter (value, futures) {
         const latestDistinctFutures = [];
         for (let i = 0; i<keys.length && futures.length; i++) {
             const key = keys[i];
@@ -80,6 +80,15 @@ function createLatestTaskFilter (keys) {
             });
         }
         return latestDistinctFutures;
+    };
+}
+
+function createTakeLastFilter (max) {
+    return function lastFilter (value, futures) {
+        const nextFutures = [];
+        for (let i = Math.max(futures.length-max, 0); i<futures.length; i++) {
+            nextFutures.push(futures[i]);
+        }
     };
 }
 
@@ -381,7 +390,7 @@ function createResolvable () {
     });
 }
 
-function createGetDelay(from){
+function createGetDelay (from) {
     if (Number.isInteger(from)) {
         return () => from;
     } else if (typeof from=== 'function') {
@@ -424,7 +433,8 @@ module.exports = {
     createTakeUntilFilterResolver,
     createGeneratorFromIterator,
     sleep,
-    createLatestTaskFilter,
+    createLastTaskFilter,
     createResolvable,
     createGetDelay,
+    createTakeLastFilter,
 };

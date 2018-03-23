@@ -32,7 +32,7 @@ describe('operator some', () => {
             .some(it => it<5)
             .pull();
         expect(result).toBe(true);
-    });
+    }, 200);
 
     test('some sync should return true', async () => {
         const result = await provider({ flatten: [ 6, 10, 4, 3, ], })

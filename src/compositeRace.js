@@ -7,10 +7,10 @@ module.exports = async function createRace () {
             const _promise = new Promise(applyOnResolve => {
                 let active = true;
                 const self = {
-                    retire (resolver = race) {
+                    resolve (resolver = race) {
                         active = false;
                         if (next) {
-                            next.retire(resolver);
+                            next.resolve(resolver);
                         }
                         applyOnResolve(resolver);
                         return resolver;
@@ -20,7 +20,7 @@ module.exports = async function createRace () {
                         if (prev) {
                             prev.cancelCurrentStream (resolver);
                         } else if (next) {
-                            next.retire(resolver);
+                            next.resolve(resolver);
                         }
                         applyOnResolve(resolver);
                         return resolver;
@@ -31,7 +31,7 @@ module.exports = async function createRace () {
                     get promise () {
                         return _promise;
                     },
-                    race (...promises) {
+                    compete (...promises) {
                         return Promise.race([ _promise, ...promises, ]);
                     },
                     async extendRace () {

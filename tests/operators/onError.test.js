@@ -59,10 +59,10 @@ describe('concurrency operators ', () => {
                 .map(it => sleepAndReturn(1, it))
                 .await()
                 .forEach(int => results.push(int))
-                .catch((e, { index, name, value, }) => {
+                .catch((e, { middleware, value, }) => {
                     err = e;
-                    expect(index).toBe(3);
-                    expect(name).toBe('forEach');
+                    expect(middleware.index).toBe(3);
+                    expect(middleware.name).toBe('forEach');
                     expect(value).toBe(2);
                 })
                 .pull();
@@ -79,16 +79,17 @@ describe('concurrency operators ', () => {
                 .await()
                 .forEach(int => {
                     if (int===2) {
-                        throw  new Error('');
+                        throw  new Error('forEachError');
                     }
                 })
                 .map(it => sleepAndReturn(1, it))
                 .await()
                 .forEach(int => results.push(int))
-                .catch((e, { index, name, value, }) => {
+                .catch((e, { middleware, value, }) => {
                     err = e;
-                    expect(index).toBe(3);
-                    expect(name).toBe('forEach');
+                    expect(e.message).toBe('forEachError');
+                    expect(middleware.index).toBe(3);
+                    expect(middleware.name).toBe('forEach');
                     expect(value).toBe(2);
                 })
                 .pull();

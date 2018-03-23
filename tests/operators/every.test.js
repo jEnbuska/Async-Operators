@@ -12,10 +12,10 @@ describe('operator flatten', () => {
     });
 
     test('every sync', async () => {
-        const result2 = await provider({ flatten: [ 6, 10, 5, ], })
+        const result = await provider({ flatten: [ 6, 10, 5, ], })
             .every(it => it>5)
             .pull();
-        expect(result2).toBe(false);
+        expect(result).toBe(false);
     });
 
 });

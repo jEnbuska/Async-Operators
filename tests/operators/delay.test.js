@@ -23,5 +23,4 @@ describe('delay operator', () => {
         expect(results).toEqual([ 'delay_1', ]);
         expect((Date.now() - before)<400).toBe(true);
     });
-
 });

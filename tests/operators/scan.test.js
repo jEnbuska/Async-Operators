@@ -14,6 +14,7 @@ describe('operator scan', () => {
 
     test('scan ordered immutable', async () => {
         const result2 = await provider({ flatten: [ sleepAndReturn(30, 30), sleepAndReturn(20, 20), ], })
+
             .await()
             .ordered()
             .scan((acc, next) => ({ ...acc, [next]: true, }), {})
