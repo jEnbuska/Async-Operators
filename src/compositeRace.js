@@ -1,7 +1,7 @@
 module.exports = async function createRace () {
     let races = 0;
-    async function createCompositePromise (prev) {
-        let next;
+    async function createCompositePromise () {
+        const children = [];
         const race = races++;
         return new Promise(onPromiseCreated => {
             const _promise = new Promise(applyOnResolve => {
@@ -9,18 +9,8 @@ module.exports = async function createRace () {
                 const self = {
                     resolve (resolver = race) {
                         active = false;
-                        if (next) {
-                            next.resolve(resolver);
-                        }
-                        applyOnResolve(resolver);
-                        return resolver;
-                    },
-                    cancelCurrentStream (resolver = race) {
-                        active = false;
-                        if (prev) {
-                            prev.cancelCurrentStream (resolver);
-                        } else if (next) {
-                            next.resolve(resolver);
+                        if (children) {
+                            children.forEach(child => child.resolve(resolver));
                         }
                         applyOnResolve(resolver);
                         return resolver;
@@ -34,8 +24,10 @@ module.exports = async function createRace () {
                     compete (...promises) {
                         return Promise.race([ _promise, ...promises, ]);
                     },
-                    async extendRace () {
-                        return next = await createCompositePromise(self);
+                    async extend () {
+                        const child = await createCompositePromise(self);
+                        children.push(child);
+                        return child;
                     },
                 };
                 onPromiseCreated(self);

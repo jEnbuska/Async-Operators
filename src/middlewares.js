@@ -25,7 +25,7 @@ function prepareProvider ({ index = 0, name, callback, }) {
                         isActive: downStream.isActive,
                         async onNext (value) {
                             if (downStream.isActive()) {
-                                const upStream = await execution.extendRace();
+                                const upStream = await execution.extend();
                                 const next = downStream.onNext(value, handle, [ i++, ], upStream, name);
                                 toBeResolved.push(next);
                                 return next;
@@ -54,7 +54,7 @@ function prepareProvider ({ index = 0, name, callback, }) {
                             }
                         }
                         if (result && !result.done && downStream.isActive() && execution.isActive()) {
-                            const upStream = await execution.extendRace();
+                            const upStream = await execution.extend();
                             downStream.onNext(result.value, handle, [ i++, ], upStream, name);
                         } else {
                             break;
@@ -219,7 +219,7 @@ function prepareGenerator ({ callback, name = 'generator', index, }) {
                     continue;
                 }
                 if (result && !result.done) {
-                    const downStreamRace = await upStream.extendRace();
+                    const downStreamRace = await upStream.extend();
                     promises.push(downStream.onNext(result.value, handle, [ ...order, i++, ], downStreamRace, name));
                     continue;
                 }
@@ -233,14 +233,14 @@ function prepareGenerator ({ callback, name = 'generator', index, }) {
 function prepareReduceUntil ({ callback, index, name, params: { defaultValue, }, }) {
     return async function createReduceUntil (downStream) {
         const executions = {};
-        const downStreamAndSelf = await downStream.extendRace();
+        const self = await downStream.extend();
         return {
-            ...downStreamAndSelf,
+            ...self,
             onStart (handle) {
                 executions[handle] = defaultValue;
             },
             onNext (value, handle, order, upStream) {
-                if (downStreamAndSelf.isActive() && upStream.isActive()) {
+                if (self.isActive() && upStream.isActive()) {
                     let next;
                     try {
                         next = callback(value);
@@ -249,7 +249,7 @@ function prepareReduceUntil ({ callback, index, name, params: { defaultValue, },
                     }
                     executions[handle]= next.value;
                     if (next.done) {
-                        downStreamAndSelf.resolve();
+                        self.resolve();
                     }
                 }
             },
@@ -443,11 +443,11 @@ function prepareCatch ({ callback, index, name = 'catch', }) {
 
 function preparePreUpStreamFilter ({ index, name, callback, }) {
     return async function createPreUpStreamFilter (downStream) {
-        const downStreamAndSelf = await downStream.extendRace();
+        const self = await downStream.extend();
         return {
-            ...downStreamAndSelf,
+            ...self,
             onNext (value, handle, order, upStream, callee) {
-                if (downStreamAndSelf.isActive() && upStream.isActive()) {
+                if (self.isActive() && upStream.isActive()) {
                     let accept;
                     try {
                         accept = callback(value);
@@ -457,7 +457,7 @@ function preparePreUpStreamFilter ({ index, name, callback, }) {
                     if (accept) {
                         return downStream.onNext(value, handle, order, upStream, name);
                     } else {
-                        downStreamAndSelf.resolve();
+                        self.resolve();
                     }
                 }
             },
@@ -467,11 +467,11 @@ function preparePreUpStreamFilter ({ index, name, callback, }) {
 
 function prepareTakeLimit ({ name, index, callback, }) {
     return async function createTakeLimit (downStream) {
-        const downStreamAndSelf = await downStream.extendRace();
+        const self = await downStream.extend();
         return {
-            ...downStreamAndSelf,
+            ...self,
             onNext (value, handle, order, upStream, callee) {
-                if (downStreamAndSelf.isActive() && upStream.isActive()) {
+                if (self.isActive() && upStream.isActive()) {
                     const res = downStream.onNext(value, handle, order, upStream, callee);
                     let stop;
                     try {
@@ -480,7 +480,7 @@ function prepareTakeLimit ({ name, index, callback, }) {
                         return downStream.onError(e, { value, middleware: { index, name, callee, }, });
                     }
                     if (stop) {
-                        downStreamAndSelf.resolve();
+                        self.resolve();
                     } else {
                         return res;
                     }
