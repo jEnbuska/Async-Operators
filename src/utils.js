@@ -416,21 +416,22 @@ function createLatestCanceller () {
 
 function createLatestByCanceller (keys) {
     if (!keys.length) return createLatestCanceller();
-    function matcher (group, value) {
-        return keys.every((key, i) => value[key] ===group[i]);
-    }
-    const executions = [];
+    const path = keys.slice(0, keys.length-1);
+    const tail = keys[keys.length-1];
+    const executions = {};
     return function latestByCanceller (upStream, value) {
-        const index = executions.findIndex(([ groupKey, ]) => matcher(groupKey, value));
-        if (index!==-1) {
-            let target = executions[index][1];
-            target.resolve();
-            executions[index][1] = upStream;
-        } else {
-            const key = keys.map(k => value[k]);
-            executions.push([ key, upStream, ]);
+        let target = executions;
+        for (let i = 0; i<path.length; i++) {
+            const key = value[path[i]];
+            if (!target[key]) {
+                target[key] = {};
+            }
+            target = target[key];
         }
-        return executions;
+        if (target[value[tail]]) {
+            target[value[tail]].resolve();
+        }
+        target[value[tail]] = upStream;
     };
 }
 
