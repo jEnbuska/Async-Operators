@@ -1,6 +1,6 @@
 import { provider, } from '../../';
 
-describe('last operators ', () => {
+describe('lastBy operators ', () => {
     test('lastBy with 1 parameter', async() => {
         const results = await provider({ flatten: [ { name: 'John', age: 20, }, { name: 'Lisa', age: 25, }, { name: 'John', age: 25, }, ], })
             .lastBy([ 'name', ])

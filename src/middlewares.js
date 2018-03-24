@@ -278,7 +278,7 @@ function prepareReduceUntil ({ callback, index, name, params: { defaultValue, },
 }
 
 function prepareLast ({ index, callback, name = 'last', }) {
-    return function createLatest (downStream) {
+    return function createLast (downStream) {
         const executions = {};
         return {
             onStart (handle) {

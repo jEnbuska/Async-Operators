@@ -86,9 +86,12 @@ function createLastTaskFilter (keys) {
 function createTakeLastFilter (max) {
     return function lastFilter (value, futures) {
         const nextFutures = [];
-        for (let i = Math.max(futures.length-max, 0); i<futures.length; i++) {
+        const to = futures.length;
+        const from = Math.max(0, futures.length-max+1);
+        for (let i = from; i< to; i++) {
             nextFutures.push(futures[i]);
         }
+        return nextFutures;
     };
 }
 
