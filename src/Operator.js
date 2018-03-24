@@ -59,11 +59,11 @@ class Operator  {
         }
         const tail = await Operator._createTail();
         let out;
-        const ourHandle= Operator.executions++;
-        const { onStart, onComplete, } = await this._createMiddlewares({
+        const handle= Operator.executions++;
+        const { onStart, onComplete, onFinish, } = await this._createMiddlewares({
             ...tail,
-            onNext (value, handle) {
-                if (tail.isActive() && handle === ourHandle) {
+            onNext ({ value, handle, }) {
+                if (tail.isActive() && handle === handle) {
                     out = value;
                 }
             },
@@ -72,13 +72,17 @@ class Operator  {
                 throw e;
             },
             onStart () {},
+            onFinish () {},
         });
-
-        await onStart(ourHandle, 'pull');
+        await onStart(handle, 'pull');
+        const upStream = await createRace();
         try {
-            return await onComplete(ourHandle, undefined, 'pull').then(() => out);
+            const result = await onComplete(handle, upStream, 'pull').then(() => out);
+            onFinish(handle);
+            return result;
         } catch (e) {
             tail.resolve();
+            onFinish(handle);
             throw e;
         }
     }
