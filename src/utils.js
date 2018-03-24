@@ -62,7 +62,7 @@ function createDistinctByFilter (keys) {
     };
 }
 
-function createLastTaskFilter (keys) {
+function createTakeLastByFilter (keys) {
     if (!keys.length) {
         console.error(keys); throw new Error('Invalid parameter passed to historyComparator');
     }
@@ -406,6 +406,34 @@ function createGetDelay (from) {
     }
 }
 
+function createLatestCanceller () {
+    let prev = { resolve () {}, };
+    return function latestCanceller (upStream) {
+        prev.resolve();
+        prev = upStream;
+    };
+}
+
+function createLatestByCanceller (keys) {
+    if (!keys.length) return createLatestCanceller();
+    function matcher (group, value) {
+        return keys.every((key, i) => value[key] ===group[i]);
+    }
+    const executions = [];
+    return function latestByCanceller (upStream, value) {
+        const index = executions.findIndex(([ groupKey, ]) => matcher(groupKey, value));
+        if (index!==-1) {
+            let target = executions[index][1];
+            target.resolve();
+            executions[index][1] = upStream;
+        } else {
+            const key = keys.map(k => value[k]);
+            executions.push([ key, upStream, ]);
+        }
+        return executions;
+    };
+}
+
 module.exports = {
     NOT_SET,
     defaultFilter,
@@ -436,8 +464,10 @@ module.exports = {
     createTakeUntilFilterResolver,
     createGeneratorFromIterator,
     sleep,
-    createLastTaskFilter,
+    createTakeLastByFilter,
     createResolvable,
     createGetDelay,
     createTakeLastFilter,
+    createLatestByCanceller,
+    createLatestCanceller,
 };

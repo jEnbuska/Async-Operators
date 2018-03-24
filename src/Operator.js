@@ -10,7 +10,7 @@ const { createFirstEndResolver,
     createMinReducer,
     defaultFilter,
     defaultComparator,
-    createLastTaskFilter,
+    createTakeLastByFilter,
     createTakeLastFilter,
     createGroupByReducer,
     createSkipWhileFilter,
@@ -25,6 +25,8 @@ const { createFirstEndResolver,
     createTakeWhileFilterResolver,
     createGetDelay,
     createGeneratorFromIterator,
+    createLatestByCanceller,
+    createLatestCanceller,
 } = require('./utils');
 
 /* eslint-disable consistent-return */
@@ -43,6 +45,7 @@ const {
     prepareAwait,
     prepareParallel,
     prepareGenerator,
+    prepareDownStreamFilter,
     prepareDelay,  } = require('./middlewares');
 
 class Operator  {
@@ -142,12 +145,12 @@ class Operator  {
         return this._create({ operator: prepareReduce,  callback, name: '$max', params: { acc, }, });
     }
     lastBy (keys) {
-        const callback = createLastTaskFilter(keys);
-        return this._create({ operator: prepareLast, callback, name: 'latestBy', });
+        const callback = createTakeLastByFilter(keys);
+        return this._create({ operator: prepareLast, callback, name: 'lastBy', });
     }
     last (max = 1) {
         const callback = createTakeLastFilter(max);
-        return this._create({ operator: prepareLast, callback, name: 'latestBy', });
+        return this._create({ operator: prepareLast, callback, name: 'last', });
     }
 
     // ordered
@@ -338,6 +341,18 @@ class Operator  {
     $forEach (createCallback) {
         const callback = (value, scope) => createCallback(scope)(value);
         return this._create({ operator: prepareForEach, callback, });
+    }
+
+    // downStream filters
+    latest () {
+        const callback = createLatestCanceller()
+        return this._create({ operator: prepareDownStreamFilter, callback, name: 'latest', });
+    }
+
+    latestBy (keys = []) {
+        if (!Array.isArray(keys)) throw new Error('Invalid first parameter passed to "latestBy", Expected to receive an array');
+        const callback = createLatestByCanceller(keys);
+        return this._create({ operator: prepareDownStreamFilter, callback, name: 'latestBy', });
     }
 
     // await

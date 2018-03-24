@@ -522,6 +522,19 @@ function prepareTakeLimit ({ name, index, callback, }) {
     };
 }
 
+function prepareDownStreamFilter ({ name, callback, }) {
+    return async function createDownStreamFilter (downStream) {
+        return {
+            onNext ({ value, handle, order, upStream, }) {
+                if (downStream.isActive() && upStream.isActive()) {
+                    callback(upStream, value);
+                    return downStream.onNext({ value, order, handle, upStream, callee: name, });
+                }
+            },
+        };
+    };
+}
+
 module.exports = {
     prepareAwait,
     prepareParallel,
@@ -539,4 +552,5 @@ module.exports = {
     prepareCatch,
     preparePreUpStreamFilter,
     prepareTakeLimit,
+    prepareDownStreamFilter,
 };
