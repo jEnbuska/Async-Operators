@@ -7,7 +7,7 @@ describe('concurrency operators ', () => {
         let err;
         const results = [];
         try {
-            await provider({ flatten: [ 1, 2, 3, 4, ], })
+            await provider.fromIterable([ 1, 2, 3, 4, ])
                 .forEach(int => results.push(int))
                 .forEach(int => {
                     if (int===2) {
@@ -27,7 +27,7 @@ describe('concurrency operators ', () => {
         let err;
         const intermediate = [];
         try {
-            await provider({ flatten: [ 1, 2, 3, 4, ], })
+            await provider.fromIterable([ 1, 2, 3, 4, ])
                 .map(it => sleepAndReturn(it*10, it))
                 .await()
                 .forEach(int => {
@@ -48,7 +48,7 @@ describe('concurrency operators ', () => {
     test('catch should prevent up stream to be cancelled', async() => {
         let err;
         const results = [];
-        await provider({ flatten: [ 1, 2, 3, 4, ], })
+        await provider.fromIterable([ 1, 2, 3, 4, ])
                 .map(it => sleepAndReturn(it*10, it))
                 .await()
                 .forEach(int => {
@@ -61,8 +61,8 @@ describe('concurrency operators ', () => {
                 .forEach(int => results.push(int))
                 .catch((e, { middleware, value, }) => {
                     err = e;
-                    expect(middleware.index).toBe(3);
                     expect(middleware.name).toBe('forEach');
+                    expect(middleware.index).toBe(3);
                     expect(value).toBe(2);
                 })
                 .pull();
@@ -74,7 +74,7 @@ describe('concurrency operators ', () => {
     test('catch should prevent down stream to be cancelled', async() => {
         let err;
         const results = [];
-        await provider({ flatten: [ 1, 2, 3, 4, ], })
+        await provider.fromIterable([ 1, 2, 3, 4, ])
                 .map(it => sleepAndReturn(it*10, it))
                 .await()
                 .forEach(int => {

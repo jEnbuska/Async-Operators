@@ -6,13 +6,12 @@ describe('parallel tests', () => {
         const executionOrder = [];
         let concurrent = 0;
         let concurrentMax = 0;
-        const result = await provider({
-            * generator () {
+        const result = await provider.fromGenerator(
+            function * () {
                 for (let i = 0; i<7; i++) {
                     yield i;
                 }
-            },
-        })
+            })
             .forEach(unControlled => executionOrder.push({ unControlled, }))
             .parallel(3)
             .forEach(() => concurrent++)
@@ -33,7 +32,7 @@ describe('parallel tests', () => {
 
     test('parallel as source', async() => {
         const executionOrder = [];
-        const result = await provider({ flatten: [ 0, 1, 2, 3, 4, 5, 6, ], })
+        const result = await provider.fromIterable([ 0, 1, 2, 3, 4, 5, 6, ])
             .parallel(3)
             .forEach(before => executionOrder.push({ before, }))
             .delay(int => int*2+5)
@@ -71,9 +70,8 @@ describe('parallel tests', () => {
             }
             current.push(i);
         }
-        const result = await provider({
-            flatten: tasks,
-        }).parallel(2)
+        const result = await provider.fromIterable(tasks)
+            .parallel(2)
             .flatten()
             .parallel(2)
             .reduce((acc, next) => [ ...acc, next, ], [])
@@ -90,9 +88,8 @@ describe('parallel tests', () => {
         let lower = 0;
         let lowerMax = 0;
         let upperMax = 0;
-        const result = await provider({
-            flatten: [ [ 0, 1, 2, ], [ 3, 4, 5, ], [ 6, 7, 8, ], ],
-        }).parallel(2)
+        const result = await provider.fromIterable([ [ 0, 1, 2, ], [ 3, 4, 5, ], [ 6, 7, 8, ], ])
+            .parallel(2)
             .forEach(() => upper+=3)
             .forEach(() => {
                 if (upperMax<upper)upperMax=upper;

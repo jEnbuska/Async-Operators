@@ -3,7 +3,7 @@ import { provider, } from '../../';
 describe('operator sort', () => {
 
     test('sort without comparator', async() => {
-        const result = await provider({ flatten: [ 3, 1, 2, ], })
+        const result = await provider.fromIterable([ 3, 1, 2, ])
             .sort()
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -11,7 +11,7 @@ describe('operator sort', () => {
     });
 
     test('sort with comparator function', async() => {
-        const result = await provider({ flatten: [ 3, 1, 2, ], })
+        const result = await provider.fromIterable([ 3, 1, 2, ])
             .sort((a, b) => a<b ? 1: -1)
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -19,13 +19,13 @@ describe('operator sort', () => {
     });
 
     test('sortBy multiple secondary object ASC comparisons', async() => {
-        const result = await provider({ flatten: [
+        const result = await provider.fromIterable([
             { name: 'John', age: 25, gender: 1, income: 3000, },
                 { name: 'Jane', age: 30, gender: 0, income: 3700, },
                 { name: 'Matt', age: 40, gender: 1, income: 3450, },
                 { name: 'Bill', age: 30, gender: 1, income: 3000, },
                 { name: 'Andrew', age: 44, gender: 1, income: 3750, },
-                { name: 'Laura', age: 44, gender: 0, income: 3750, }, ], })
+                { name: 'Laura', age: 44, gender: 0, income: 3750, }, ])
             .sortBy({ age: 'ASC', income: 'ASC', gender: 'ASC', })
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -40,13 +40,13 @@ describe('operator sort', () => {
     });
 
     test('sortBy multiple secondary object DESC comparisons', async() => {
-        const result = await provider({ flatten: [
+        const result = await provider.fromIterable([
             { name: 'John', age: 25, gender: 1, income: 3000, },
             { name: 'Jane', age: 30, gender: 0, income: 3700, },
             { name: 'Matt', age: 40, gender: 1, income: 3450, },
             { name: 'Bill', age: 30, gender: 1, income: 3000, },
             { name: 'Andrew', age: 44, gender: 1, income: 3750, },
-            { name: 'Laura', age: 44, gender: 0, income: 3750, }, ], })
+            { name: 'Laura', age: 44, gender: 0, income: 3750, }, ])
             .sortBy({ age: 'DESC', income: 'DESC', gender: 'DESC', })
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();

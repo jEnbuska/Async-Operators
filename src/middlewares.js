@@ -1,65 +1,73 @@
 /* eslint-disable consistent-return */
-const { sleep, createResolvable, } = require('./utils');
+const { sleep, } = require('./utils');
 
-function prepareProvider ({ index = 0, name, callback, }) {
+function prepareGeneratorProvider ({ index = 0, name, callback, }) {
     return async function createProvider (downStream) {
         return {
             async onComplete (handle, upStreamRoot) {
-                if (name === 'map') {
-                    let value;
+                let generator = await callback();
+                let i = 0;
+                let result = {};
+                while (true) {
                     try {
-                        value = callback();
+                        result = await downStream.compete(generator.next(result.value));
                     } catch (e) {
-                        downStream.onError(e, { index, name, value: callback, });
+                        downStream.onError(e, { middleware: { index, name, }, value: generator, });
+                        if (downStream.isActive()) {
+                            continue;
+                        } else {
+                            break;
+                        }
                     }
-                    downStream.onNext({ value, handle, order: [ 0, ], upStream: upStreamRoot, callee: name, });
-                    return downStream.onComplete(handle, upStreamRoot, name);
-                } else if (name === 'callback') {
-                    let i = 0;
-                    const { resolve, promise, } = await createResolvable();
-                    const toBeResolved = [];
+                    if (result && !result.done && downStream.isActive() && upStreamRoot.isActive()) {
+                        const { value, } = result;
+                        const upStream = await upStreamRoot.extend();
+                        downStream.onNext({ value, handle, order: [ i++, ], upStream, callee: name, });
+                    } else {
+                        break;
+                    }
+                }
+                return downStream.onComplete(handle, upStreamRoot, name);
+            },
+        };
+    };
+}
+
+function prepareValueProvider ({ name, params: { value, }, }) {
+    return async function createProvider (downStream) {
+        return {
+            async onComplete (handle, upStreamRoot) {
+                downStream.onNext({ value, handle, order: [ 0, ], upStream: upStreamRoot, callee: name, });
+                return downStream.onComplete(handle, upStreamRoot, name);
+            },
+        };
+    };
+}
+
+function prepareCallbackProvider ({ name, index = 0, callback, }) {
+    return async function createProvider (downStream) {
+        return {
+            async onComplete (handle, upStreamRoot, callee) {
+                let i = 0;
+                const toBeResolved = [];
+                try {
                     callback({
-                        compete: downStream.compete,
-                        isActive: downStream.isActive,
+                        ...upStreamRoot,
                         async onNext (value) {
-                            if (downStream.isActive()) {
+                            if (downStream.isActive() && upStreamRoot.isActive()) {
                                 const upStream = await upStreamRoot.extend();
-                                const next = downStream.onNext({ value, handle, order: [ i++, ], upStream, callee: name, });
-                                toBeResolved.push(next);
-                                return next;
+                                return downStream.onNext({ value, handle, order: [ i++, ], upStream, callee: name, });
                             }
                         },
                         async onComplete () {
                             await downStream.compete(Promise.all(toBeResolved));
                             await downStream.onComplete(handle, upStreamRoot, name);
-                            resolve();
+                            upStreamRoot.resolve();
                         },
                     });
-                    return promise;
-                } else if (name === 'generator') {
-                    let generator = await callback();
-                    let i = 0;
-                    let result = {};
-                    while (true) {
-                        try {
-                            result = await downStream.compete(generator.next(result.value));
-                        } catch (e) {
-                            downStream.onError(e, { middleware: { index, name, }, value: generator, });
-                            if (downStream.isActive()) {
-                                continue;
-                            } else {
-                                break;
-                            }
-                        }
-                        if (result && !result.done && downStream.isActive() && upStreamRoot.isActive()) {
-                            const { value, } = result;
-                            const upStream = await upStreamRoot.extend();
-                            downStream.onNext({ value, handle, order: [ i++, ], upStream, callee: name, });
-                        } else {
-                            break;
-                        }
-                    }
-                    return downStream.onComplete(handle, upStreamRoot, name);
+                    return upStreamRoot.promise;
+                } catch (e) {
+                    downStream.onError(e, { value: callback, middleware: { name, index, callee, }, });
                 }
             },
         };
@@ -335,8 +343,7 @@ function prepareOrdered ({ callback, index, name = 'ordered', }) {
                     runnables = [];
                     return downStream.onError(error, { middleware: { name, index, }, value: executions[handle], });
                 }
-                let i = 0;
-                while (runnables.length>i) runnables[i++]();
+                for (const next of runnables) next();
                 return downStream.onComplete(handle, upStreamRoot, name);
             },
             onFinish (handle) {
@@ -536,11 +543,13 @@ function prepareDownStreamFilter ({ name, callback, }) {
 }
 
 module.exports = {
+    prepareValueProvider,
+    prepareGeneratorProvider,
+    prepareCallbackProvider,
     prepareAwait,
     prepareParallel,
     prepareDelay,
     prepareGenerator,
-    prepareProvider,
     prepareLast,
     prepareReduceUntil,
     prepareDefault,

@@ -4,7 +4,7 @@ import { sleepAndReturn, } from '../common';
 describe('operator scan', () => {
 
     test('scan parallel mutating', async () => {
-        const result = await provider({ flatten: [ sleepAndReturn(30, 30), sleepAndReturn(20, 20), ], })
+        const result = await provider.fromIterable([ sleepAndReturn(30, 30), sleepAndReturn(20, 20), ])
             .await()
             .scan((acc, next) => Object.assign(acc, { [next]: true, }), {}) // Wrong way of doing things
             .reduce((acc, next) => [ ...acc, next, ], [])
@@ -13,7 +13,7 @@ describe('operator scan', () => {
     });
 
     test('scan ordered immutable', async () => {
-        const result2 = await provider({ flatten: [ sleepAndReturn(30, 30), sleepAndReturn(20, 20), ], })
+        const result2 = await provider.fromIterable([ sleepAndReturn(30, 30), sleepAndReturn(20, 20), ])
 
             .await()
             .ordered()
@@ -24,7 +24,7 @@ describe('operator scan', () => {
     });
 
     test('scan parallel immutable', async () => {
-        const result = await provider({ flatten: [ sleepAndReturn(30, 30), sleepAndReturn(20, 20), ], })
+        const result = await provider.fromIterable([ sleepAndReturn(30, 30), sleepAndReturn(20, 20), ])
             .await()
             .scan((acc, next) => ({ ...acc, [next]: true, }), {})
             .reduce((acc, next) => [ ...acc, next, ], [])
@@ -33,14 +33,14 @@ describe('operator scan', () => {
     });
 
     test('scan parallel take 5', async () => {
-        const result2 = await provider({ flatten: [
+        const result2 = await provider.fromIterable([
             sleepAndReturn(30, 1), // 4
             sleepAndReturn(30, 2), // 5
             sleepAndReturn(20, 3), // 2
             sleepAndReturn(15, 4), // 1
             sleepAndReturn(30, 5), // 6
             sleepAndReturn(20, 6), // 3
-        ], })
+        ])
             .await()
             .scan((acc, next) => ({ ...acc, [next]: true, }), {})
             .take(5)

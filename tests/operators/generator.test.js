@@ -4,7 +4,7 @@ import { sleepAndReturn, sleep, } from '../common';
 describe('operator generator', () => {
 
     test('generator as middleware', async() => {
-        const result = await provider({ flatten: [ 3, 1, 2, ], })
+        const result = await provider.fromIterable([ 3, 1, 2, ])
             .reduce((acc, next) => [ ...acc, next, ], [])
             .generator(async function*(val) {
                 const out = val.reduce((sum, it) => sum+it, 0);
@@ -15,23 +15,22 @@ describe('operator generator', () => {
     });
 
     test('simple resolve from generator', async() => {
-        const result = await provider({
-            async * generator () {
+        const result = await provider.fromGenerator(
+            async function * () {
                 yield await sleepAndReturn(20, 20);
                 yield await sleepAndReturn(30, 30);
-            }, })
+            })
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
         expect(result).toEqual([ 20, 30, ]);
     });
 
     test('generator misc', async() => {
-        const result = await provider({
-            async * generator () {
+        const result = await provider.fromGenerator(
+            async function * () {
                 yield await sleepAndReturn(20, 20);
                 yield await sleepAndReturn(30, 30);
-            },
-        })
+            })
             .reduce((acc, next) => [ ...acc, next, ], [])
             .forEach(it => expect(it).toEqual([ 20, 30, ]))
             .generator(async function*(val) {
@@ -46,15 +45,14 @@ describe('operator generator', () => {
     test('generator before takeUntil', async() => {
         const tries = [];
         const passes = [];
-        await provider({
-            async *generator () {
+        await provider.fromGenerator(
+            async function *() {
                 yield await sleepAndReturn(20, 20);
                 yield await sleepAndReturn(10, 10);
                 yield await sleepAndReturn(0, 0);
                 yield await sleepAndReturn(30, 30);
                 yield await sleepAndReturn(40, 40);
-            },
-        })
+            })
             .forEach(it => tries.push(it))
             .takeWhile(it => it !== 0)
             .forEach(it => passes.push(it))
@@ -64,7 +62,7 @@ describe('operator generator', () => {
     });
 
     test('use same generator producer multiple times', async() => {
-        const result = await provider({ flatten: [ 1, 2, 3, 4, ], })
+        const result = await provider.fromIterable([ 1, 2, 3, 4, ])
             .generator(async function*(value) {
                 for (let i = 0; i<value; i++)
                     yield i;
@@ -83,10 +81,10 @@ describe('operator generator', () => {
 
     test('generator as producer and flattener', async() => {
         const results = [];
-        await provider({
-            async * generator () {
+        await provider.fromGenerator(
+            function * generator () {
                 yield 10;
-            }, })
+            })
             .map(async (ten) =>  [ ten, 0, await sleepAndReturn(20, 20), ])
             .await()
             .generator(async function*(value) {
@@ -103,13 +101,12 @@ describe('operator generator', () => {
     test('generator race should resolve before sleep', async() => {
         const results = [];
         const before = Date.now();
-        await provider({
-            async * generator () {
+        await provider.fromGenerator(
+            async function * generator () {
                 yield 1;
                 yield 2;
                 yield await sleepAndReturn(1000, 3);
-            },
-        })
+            })
         .takeUntil(it => it===2)
         .forEach(it => results.push(it))
         .pull();
@@ -119,13 +116,12 @@ describe('operator generator', () => {
 
     test('generator with parallel', async() => {
         const executionOrder = [];
-        const result = await provider({
-            * generator () {
+        const result = await provider.fromGenerator(
+            function * generator () {
                 for (let i = 0; i<7; i++) {
                     yield i;
                 }
-            },
-        })
+            })
             .parallel(3)
             .forEach(before => executionOrder.push({ before, }))
             .map((it) => sleepAndReturn(it+5, it))
@@ -160,13 +156,12 @@ describe('operator generator', () => {
         let maxDown = 0;
         let invalidParallelCountUp = false;
         let invalidParallelCountDown = false;
-        const result = await provider({
-            async * generator () {
+        const result = await provider.fromGenerator(
+            async function * () {
                 yield [ 0, 1, 2, ];
                 yield [ 3, 4, 5, ];
                 yield [ 6, 7, 8, ];
-            },
-        })
+            })
             .parallel(2)
             .forEach((arr) => {
                 maxUp+=arr.length;
@@ -191,7 +186,7 @@ describe('operator generator', () => {
             })
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
-        const sortedResult =await provider({ flatten: result, }).sort().reduce((acc, next) => [ ...acc, next, ], []).pull();
+        const sortedResult =await provider.fromIterable(result).sort().reduce((acc, next) => [ ...acc, next, ], []).pull();
         expect(sortedResult ).toEqual([ 0, 1, 2, 3, 4, 5, 6, 7, 8, ]);
         expect(invalidParallelCountDown).toBeFalsy();
         expect(invalidParallelCountUp).toBeFalsy();

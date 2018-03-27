@@ -5,7 +5,7 @@ describe('upstream filter operators', () => {
 
     test('takeWhile', async () => {
         const getDuration = createDuration();
-        const result = await provider({ flatten: [ 10, 20, 30, 100, ], })
+        const result = await provider.fromIterable([ 10, 20, 30, 100, ])
             .map(sleepAndReturn)
             .await()
             .takeWhile(it => it!==30)
@@ -17,7 +17,7 @@ describe('upstream filter operators', () => {
 
     test('every', async () => {
         const getDuration = createDuration();
-        const result = await provider({ flatten: [ 10, 20, 30, 40, ], })
+        const result = await provider.fromIterable([ 10, 20, 30, 40, ])
             .map(sleepAndReturn)
             .await()
             .every(it => it!==30)
@@ -28,7 +28,7 @@ describe('upstream filter operators', () => {
 
     test('some', async () => {
         const getDurarion = createDuration();
-        const result = await provider({ flatten: [ 10, 20, 30, 40, ], })
+        const result = await provider.fromIterable([ 10, 20, 30, 40, ])
             .map(sleepAndReturn)
             .await()
             .some(it => it===30)
@@ -39,7 +39,7 @@ describe('upstream filter operators', () => {
 
     test('first', async () => {
         const getDuration = createDuration();
-        const result = await provider({ flatten: [ 10, 20, 30, 40, ], })
+        const result = await provider.fromIterable([ 10, 20, 30, 40, ])
             .map(sleepAndReturn)
             .await()
             .filter(it => it===30)

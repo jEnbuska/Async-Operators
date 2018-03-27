@@ -3,7 +3,7 @@ import { provider, } from '../../';
 describe('filter operators', () => {
 
     test('filter', async () => {
-        const result = await provider({ flatten: [ 1, 2, 3, 2, 1, ], })
+        const result = await provider.fromIterable([ 1, 2, 3, 2, 1, ])
             .await()
             .filter(it => it!==2)
             .reduce((acc, int) => [ ...acc, int, ], [])
@@ -12,7 +12,7 @@ describe('filter operators', () => {
     });
 
     test('reject', async () => {
-        const results = await provider({ flatten: [ 1, 2, 3, 2, 1, ], })
+        const results = await provider.fromIterable([ 1, 2, 3, 2, 1, ])
             .reject(it => it!==2)
             .reduce((acc, int) => [ ...acc, int, ], [])
             .pull();
@@ -20,7 +20,7 @@ describe('filter operators', () => {
     });
 
     test('where', async () => {
-        const results = await provider({ flatten: [ { name: 'John', age: 20, }, { name: 'John', age: 25, }, { name: 'Lisa', age: 20, }, { name: 'John', age: 20, }, ], })
+        const results = await provider.fromIterable([ { name: 'John', age: 20, }, { name: 'John', age: 25, }, { name: 'Lisa', age: 20, }, { name: 'John', age: 20, }, ])
             .where({ name: 'John', age: 20, })
             .reduce((acc, person) => [ ...acc, person, ], [])
             .pull();
@@ -28,7 +28,7 @@ describe('filter operators', () => {
     });
 
     test('distinct', async () => {
-        const results = await provider({ flatten: [ 1, 5, 2, 6, 8, 3, 1, 4, 3, 2, 4, 2, ], })
+        const results = await provider.fromIterable([ 1, 5, 2, 6, 8, 3, 1, 4, 3, 2, 4, 2, ], )
             .distinct()
             .reduce((acc, person) => [ ...acc, person, ], [])
             .pull();
@@ -36,12 +36,12 @@ describe('filter operators', () => {
     });
 
     test('distinctBy', async () => {
-        const results = await provider({ flatten: [
+        const results = await provider.fromIterable([
             { name: 'John', age: 20, gender: 'male', },
                 { name: 'John', age: 25, gender: 'male', },
                 { name: 'Lisa', age: 20, gender: 'female', },
                 { name: 'John', age: 20, gender: 'female', },
-        ], })
+        ])
             .distinctBy([ 'name', 'gender', ])
             .reduce((acc, person) => [ ...acc, person, ], [])
             .pull();
@@ -52,12 +52,12 @@ describe('filter operators', () => {
     });
 
     test('skip', async () => {
-        const results = await provider({ flatten: [
+        const results = await provider.fromIterable([
                 { name: 'John', age: 20, gender: 'male', },
                 { name: 'John', age: 25, gender: 'male', },
                 { name: 'Lisa', age: 20, gender: 'female', },
                 { name: 'John', age: 20, gender: 'female', },
-        ], })
+        ])
             .skip(2)
             .reduce((acc, person) => [ ...acc, person, ], [])
             .pull();
@@ -67,12 +67,12 @@ describe('filter operators', () => {
     });
 
     test('skipWhile', async () => {
-        const results = await provider({ flatten: [
+        const results = await provider.fromIterable([
                 { name: 'John', age: 20, gender: 'male', },
                 { name: 'John', age: 25, gender: 'male', },
                 { name: 'Lisa', age: 20, gender: 'female', },
                 { name: 'John', age: 20, gender: 'female', },
-        ], })
+        ])
             .skipWhile(person => person.name==='John')
             .reduce((acc, person) => [ ...acc, person, ], [])
             .pull();

@@ -4,14 +4,14 @@ import { sleepAndReturn, } from '../common';
 describe('misc tests', () => {
 
     test('reduce', async() => {
-        const result = await provider({ flatten: [ 1, 2, 3, ], })
+        const result = await provider.fromIterable([ 1, 2, 3, ])
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
         expect(result).toEqual([ 1, 2, 3, ]);
     });
 
     test('filter', async () => {
-        const result = await provider({ flatten: [ 2, 1, ], })
+        const result = await provider.fromIterable([ 2, 1, ])
             .filter(it => it<2)
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -19,7 +19,7 @@ describe('misc tests', () => {
     });
 
     test('keys', async() => {
-        const result = await provider({ map: { a: 1, b: 2, }, })
+        const result = await provider.fromValue({ a: 1, b: 2, })
             .keys()
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -27,7 +27,7 @@ describe('misc tests', () => {
     });
 
     test('values', async() => {
-        const result = await provider({ map: { a: 1, b: 2, }, })
+        const result = await provider.fromValue({ a: 1, b: 2, })
             .values()
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -35,7 +35,7 @@ describe('misc tests', () => {
     });
 
     test('entries', async() => {
-        const result = await provider({ map: { a: 1, b: 2, }, })
+        const result = await provider.fromValue({ a: 1, b: 2, })
             .entries()
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -43,7 +43,7 @@ describe('misc tests', () => {
     });
 
     test('reverse', async() => {
-        const result = await provider({ flatten: [ 1, 2, 3, ], })
+        const result = await provider.fromIterable([ 1, 2, 3, ])
             .reverse()
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -51,7 +51,7 @@ describe('misc tests', () => {
     });
 
     test('where', async() => {
-        const results = await provider({ flatten: [ { name: 'Lisa', age: 20, gender: 'female', }, { name: 'John', age: 20, gender: undefined, }, { name: 'John', age: 25, gender: 'male', }, ], })
+        const results = await provider.fromIterable([ { name: 'Lisa', age: 20, gender: 'female', }, { name: 'John', age: 20, gender: undefined, }, { name: 'John', age: 25, gender: 'male', }, ])
             .where({ name: 'John', age: 20, })
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -59,7 +59,7 @@ describe('misc tests', () => {
     });
 
     test('default', async() => {
-        const results = await provider({ flatten: [ sleepAndReturn(10, 10), sleepAndReturn(5, 5), ], })
+        const results = await provider.fromIterable([ sleepAndReturn(10, 10), sleepAndReturn(5, 5), ])
             .await()
             .filter(it => it>20)
             .default('nothing')
@@ -68,7 +68,7 @@ describe('misc tests', () => {
     });
 
     test('skip', async() => {
-        const results = await provider({ flatten: [ 1, 2, 3, ], })
+        const results = await provider.fromIterable([ 1, 2, 3, ],)
             .skip(2)
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -76,7 +76,7 @@ describe('misc tests', () => {
     });
 
     test('take', async() => {
-        const results = await provider({ flatten: [ 1, 2, 3, ], })
+        const results = await provider.fromIterable([ 1, 2, 3, ],)
             .take(2)
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -84,7 +84,7 @@ describe('misc tests', () => {
     });
 
     test('pick', async() => {
-        const result = await provider({ flatten: [ { name: 'Lisa', age: 20, gender: 'female', }, { name: 'John', age: 20, gender: undefined, }, { name: 'John', age: 25, gender: 'male', }, ], })
+        const result = await provider.fromIterable([ { name: 'Lisa', age: 20, gender: 'female', }, { name: 'John', age: 20, gender: undefined, }, { name: 'John', age: 25, gender: 'male', }, ])
             .pick([ 'age', 'gender', ])
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -92,7 +92,7 @@ describe('misc tests', () => {
     });
 
     test('distinctBy one key', async() => {
-        const result = await provider({ flatten: [ { name: 'Lisa', age: 20, gender: 'female', }, { name: 'John', age: 20, gender: undefined, }, { name: 'John', age: 25, gender: 'male', }, ], })
+        const result = await provider.fromIterable([ { name: 'Lisa', age: 20, gender: 'female', }, { name: 'John', age: 20, gender: undefined, }, { name: 'John', age: 25, gender: 'male', }, ])
             .distinctBy([ 'name', ])
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -100,7 +100,7 @@ describe('misc tests', () => {
     });
 
     test('distinctBy multipleKeys', async() => {
-        const result = await provider({ flatten: [ { name: 'Lisa', age: 20, }, { name: 'Lisa', age: 20, }, { name: 'Lisa', age: 25, }, ], })
+        const result = await provider.fromIterable([ { name: 'Lisa', age: 20, }, { name: 'Lisa', age: 20, }, { name: 'Lisa', age: 25, }, ])
             .distinctBy([ 'name', 'age', ])
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -108,7 +108,7 @@ describe('misc tests', () => {
     });
 
     test('distinctBy multipleKeys', async() => {
-        const result = await provider({ flatten: [ { name: 'Lisa', age: 20, }, { name: 'Lisa', age: 20, }, { name: 'Lisa', age: 25, }, ], })
+        const result = await provider.fromIterable([ { name: 'Lisa', age: 20, }, { name: 'Lisa', age: 20, }, { name: 'Lisa', age: 25, }, ])
             .distinctBy([ 'name', 'age', ])
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -116,7 +116,7 @@ describe('misc tests', () => {
     });
 
     test('distinct', async() => {
-        const result = await provider({ flatten: [ 1, 2, 4, 1, 2, 5, ], })
+        const result = await provider.fromIterable([ 1, 2, 4, 1, 2, 5, ])
             .distinct()
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -124,7 +124,7 @@ describe('misc tests', () => {
     });
 
     test('reduce', async () => {
-        const result = await provider({ flatten: [ sleepAndReturn(30, 30), sleepAndReturn(20, 20), ], })
+        const result = await provider.fromIterable([ sleepAndReturn(30, 30), sleepAndReturn(20, 20), ])
             .await()
             .reduce((acc, n) => ({ ...acc, [n]: n, }), {})
             .pull();
@@ -132,7 +132,7 @@ describe('misc tests', () => {
     });
 
     test('takeWhile', async () => {
-        const result = await provider({ flatten: [ 1, 2, 3, 25, 30, 40, 5, ], })
+        const result = await provider.fromIterable([ 1, 2, 3, 25, 30, 40, 5, ])
             .takeWhile(it => it<30)
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -140,7 +140,7 @@ describe('misc tests', () => {
     });
 
     test('takeUntil', async () => {
-        const result = await provider({ flatten: [ 1, 2, 3, 25, 30, 40, 5, ], })
+        const result = await provider.fromIterable([ 1, 2, 3, 25, 30, 40, 5, ])
             .takeUntil(it => it===30)
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -148,7 +148,7 @@ describe('misc tests', () => {
     });
 
     test('skipWhile', async () => {
-        const result = await provider({ flatten: [ 1, 2, 3, 25, 30, 40, 5, ], })
+        const result = await provider.fromIterable([ 1, 2, 3, 25, 30, 40, 5, ])
             .skipWhile(it => it<30)
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -156,7 +156,7 @@ describe('misc tests', () => {
     });
 
     test('reject', async () => {
-        const result = await provider({ flatten: [ 1, 2, 3, 25, 2, 30, 40, 5, ], })
+        const result = await provider.fromIterable([ 1, 2, 3, 25, 2, 30, 40, 5, ])
             .reject(it => it === 2)
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -164,7 +164,7 @@ describe('misc tests', () => {
     });
 
     test('omit', async () => {
-        const result = await provider({ flatten: [ { a: 1, b: 2, c: 3, d: 4, }, { a: 5, b: 6, c: 7, d: 8, }, { a: 9, b: 10, c: 11, d: 12, }, { a: 13, b: 14, c: 3, d: 15, }, ], })
+        const result = await provider.fromIterable([ { a: 1, b: 2, c: 3, d: 4, }, { a: 5, b: 6, c: 7, d: 8, }, { a: 9, b: 10, c: 11, d: 12, }, { a: 13, b: 14, c: 3, d: 15, }, ])
             .omit([ 'a', 'c', ])
             .reduce((acc, next) => [ ...acc, next, ], [])
             .pull();
@@ -172,14 +172,14 @@ describe('misc tests', () => {
     });
 
     test('min', async () => {
-        const result = await provider({ flatten: [ 1, -1, 3, 2, ], })
+        const result = await provider.fromIterable([ 1, -1, 3, 2, ])
             .min()
             .pull();
         expect(result).toBe(-1);
     });
 
     test('max', async () => {
-        const result = await provider({ flatten: [ 1, 2, 3, -1, ], })
+        const result = await provider.fromIterable([ 1, 2, 3, -1, ])
             .max()
             .pull();
         expect(result).toBe(3);

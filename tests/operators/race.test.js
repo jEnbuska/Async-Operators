@@ -6,15 +6,14 @@ describe('race', () => {
     test('generator should stop emitting values after cancelled', async() => {
         const intermediate = [];
         const getDuration = createDuration();
-        const results = await provider({
-            async * generator () {
+        const results = await provider.fromGenerator(
+            async function * () {
                 yield 1;
                 yield await sleepAndReturn(10, 2);
                 await sleep(10);
                 expect(true).toBeFalsy();// should never reach this
                 yield await sleepAndReturn(100, 3);
-            },
-        })
+            })
             .forEach(int => intermediate.push(int))
             .takeUntil(it => it===2)
             .reduce((acc, next) => [ ...acc, next, ], [])
@@ -29,13 +28,12 @@ describe('race', () => {
 
         const intermediate = [];
         const before = Date.now();
-        const results = await provider({
-            async * generator () {
+        const results = await provider.fromGenerator(
+            async function *() {
                 yield 10;
                 yield 20;
                 yield 200;
-            },
-        })
+            })
             .map(int => sleepAndReturn(int, int))
             .await()
             .forEach(int => intermediate.push(int))
@@ -50,13 +48,12 @@ describe('race', () => {
     test('ordered  should stop resolving values after cancelled', async() => {
         const intermediate = [];
         const before = Date.now();
-        const results = await provider({
-            async *generator () {
+        const results = await provider.fromGenerator(
+            async function *() {
                 yield 10;
                 yield 20;
                 yield 60;
-            },
-        })
+            })
             .map(int => sleepAndReturn(int, int))
             .ordered()
             .await()
@@ -72,13 +69,12 @@ describe('race', () => {
     test('ordered should stop resolving values after cancelled', async() => {
         const intermediate = [];
         const before = Date.now();
-        const results = await provider({
-            async * generator () {
+        const results = await provider.fromGenerator(
+            async function *() {
                 yield 10;
                 yield 20;
                 yield 200;
-            },
-        })
+            })
             .map(int => sleepAndReturn(int, int))
             .await()
             .forEach(int => intermediate.push(int))
@@ -92,13 +88,12 @@ describe('race', () => {
 
     test('reverse should stop resolving values after cancelled', async() => {
         const intermediate = [];
-        const results = await provider({
-            async * generator () {
+        const results = await provider.fromGenerator(
+            function * () {
                 yield 10;
                 yield 20;
                 yield 30;
-            },
-        })
+            })
             .map(int => sleepAndReturn(int, int))
             .await()
             .reverse()
@@ -113,13 +108,12 @@ describe('race', () => {
     test('delay should stop resolving values after cancelled', async() => {
         const intermediate = [];
         const before = Date.now();
-        const results = await provider({
-            async * generator () {
+        const results = await provider.fromGenerator(
+            async function * () {
                 yield 10;
                 yield 20;
                 yield 30;
-            },
-        })
+            })
             .map(int => sleepAndReturn(int, int))
             .delay(10)
             .await()
@@ -134,13 +128,12 @@ describe('race', () => {
     test('parallel should stop resolving values after cancelled', async() => {
         const intermediate = [];
         const before = Date.now();
-        const results = await provider({
-            async * generator () {
+        const results = await provider.fromGenerator(
+            async function * () {
                 yield 10;
                 yield 20;
                 yield 200;
-            },
-        })
+            })
             .map(int => sleepAndReturn(int, int))
             .parallel()
             .await()

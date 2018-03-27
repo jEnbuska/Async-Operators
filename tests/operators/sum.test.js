@@ -3,14 +3,14 @@ import { provider, } from '../../';
 describe('operator sum', () => {
 
     test('sum simple', async () => {
-        const result = await provider({ flatten: [ 3, 1, -2, ], })
+        const result = await provider.fromIterable([ 3, 1, -2, ])
             .sum()
             .pull();
         expect(result).toBe(3+1-2);
     });
 
     test('multiple sums', async () => {
-        const result = await provider({ flatten: [ 3, 1, -2, ], })
+        const result = await provider.fromIterable([ 3, 1, -2, ])
             .sum()
             .flatten(it => {
                 const all = [];

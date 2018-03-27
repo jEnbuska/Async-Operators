@@ -3,7 +3,7 @@ const { sleepAndReturn, createDuration, } = require('./common');
 
 describe('examples', async () => {
     test('parallel map, distinct and filter', async () => {
-        const pipe = provider({ flatten: [ 5, 4, 3, 2, 1, 2, 3, 4, 5, ], })
+        const pipe = provider.fromIterable([ 5, 4, 3, 2, 1, 2, 3, 4, 5, ])
             .map(val => sleepAndReturn(val*30, val))
             .await()
             .distinct()
@@ -15,7 +15,7 @@ describe('examples', async () => {
     });
 
     test('flatten with limit example', async () => {
-        const names = await provider({ map: { firstname: 'John', lastname: 'Doe', }, })
+        const names = await provider.fromValue({ firstname: 'John', lastname: 'Doe', })
             .flatten() // optionally flattener can be passed as callback
             .take(2) // stops all downstreams operations when limit is hit
             .reduce((acc, next) => [ ...acc, next, ], [])
@@ -24,7 +24,7 @@ describe('examples', async () => {
     });
 
     test('parallel await flatten parallel await flatten', async () => {
-        const result = await provider({ flatten: [ sleepAndReturn(100, [ 1, 2, ]), sleepAndReturn(50, [ 8, 1, ]), ], })
+        const result = await provider.fromIterable([ sleepAndReturn(100, [ 1, 2, ]), sleepAndReturn(50, [ 8, 1, ]), ])
             .await() // [ 7 ,1 ], [ 1, 2 ]
             .flatten() // 7, 1, 1, 2
             .map(val => sleepAndReturn(val*10, [ val, val*2, ]))
@@ -37,7 +37,7 @@ describe('examples', async () => {
     });
 
     test('map sum', async () => {
-        const result = await provider({ flatten: [ 1, 2, 3, ], })
+        const result = await provider.fromIterable([ 1, 2, 3, ])
             .sum()
             .map(sum => sum*2)
             .pull();
@@ -45,14 +45,14 @@ describe('examples', async () => {
     });
 
     test('map single value', async () => {
-        const agedJohn = await provider({ map: { name: 'John', age: 25, }, })
+        const agedJohn = await provider.fromValue({ name: 'John', age: 25, })
             .map(john => ({ ...john, age: john.age+1, }))
             .pull();
         expect(agedJohn).toEqual({ name: 'John', age: 26, });
     });
 
     test('default example', async () => {
-        const result = await provider({ map: 1, })
+        const result = await provider.fromValue(1)
             .filter(it => it!==1)
             .default('NOT_SET')
             .pull();

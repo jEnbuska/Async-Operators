@@ -1,7 +1,6 @@
 const { values, } = Object;
 
 const NOT_SET = Symbol('NOT_SET');
-const comparatorError = new Error('Expected comparator to be type of function, or object with shape `{[propA]: "ASC", [propB]: "DESC"}`');
 
 function defaultFilter (val) {
     return !!val;
@@ -40,8 +39,8 @@ function createDistinctByFilter (keys) {
         let subHistory = history;
         let isDistinct = false;
         val = val || {};
-        for (let i = 0; i<keys.length; i++) {
-            const value = val[keys[i]];
+        for (const next of keys) {
+            const value = val[next];
             if (subHistory[value]) {
                 subHistory = subHistory[value];
             } else {
@@ -64,7 +63,8 @@ function createDistinctByFilter (keys) {
 
 function createTakeLastByFilter (keys) {
     if (!keys.length) {
-        console.error(keys); throw new Error('Invalid parameter passed to historyComparator');
+        console.error(keys);
+        throw new Error('Invalid parameter passed to historyComparator');
     }
     return function lastByFilter (value, futures) {
         const latestDistinctFutures = [];
@@ -174,8 +174,8 @@ function createObjectComparator (obj) {
 function createWhereFilter (obj) {
     const entries = Object.entries(obj);
     return function whereFilterer (val) {
-        for (const e of entries) {
-            if (val[e[0]] !== e[1]) {
+        for (const [ k, v, ] of entries) {
+            if (val[k] !== v) {
                 return;
             }
         }
@@ -243,30 +243,11 @@ function createPickMapper (keys) {
 function createOmitMapper (keys) {
     const omit = createSet(keys);
     return function omitMapper (val) {
-        if (typeof val === 'string') {
-            let acc = '';
-            for (let i = 0; i<val.length; i++) {
-                const k = omit.has(val[i]);
-                if (!omit[k]) {
-                    acc+=val[k];
-                }
-            }
-            return acc;
-        } else if (Array.isArray(val)) {
-            const acc = [];
-            for (let i = 0; i<val.length; i++) {
-                if (!omit[i]) {
-                    acc.push(val[i]);
-                }
-            }
-            return acc;
+        if (Array.isArray(val)) {
+            return val.filter((_, i) => !omit[i]);
         } else {
             const acc = { ...val, };
-            for (const k in acc) {
-                if (omit[k]) {
-                    delete acc[k];
-                }
-            }
+            for (const k in omit) delete acc[k];
             return acc;
         }
     };
@@ -367,8 +348,8 @@ function createTakeUntilFilterResolver (predicate) {
 function createGeneratorFromIterator (createIterator = Object.values) {
     return function * iterableGenerator (val) {
         const arr = createIterator(val);
-        for (let i = 0; i<arr.length; i++) {
-            yield arr[i];
+        for (const next of arr) {
+            yield next;
         }
     };
 }
@@ -420,33 +401,23 @@ function createLatestByCanceller (keys) {
     const tail = keys[keys.length-1];
     const executions = {};
     return function latestByCanceller (upStream, value) {
-        let target = executions;
-        for (let i = 0; i<path.length; i++) {
-            const key = value[path[i]];
-            if (!target[key]) {
-                target[key] = {};
-            }
-            target = target[key];
-        }
-        if (target[value[tail]]) {
-            target[value[tail]].resolve();
-        }
+        const target = path.reduce((acc, k) => acc[value[k]] || (acc[value[k]] = {}), executions);
+        if (target[value[tail]]) target[value[tail]].resolve();
         target[value[tail]] = upStream;
     };
 }
 
 module.exports = {
     NOT_SET,
+    ASC,
+    DESC,
     defaultFilter,
     createDistinctByFilter,
     orderComparator,
     defaultComparator,
     createObjectComparator,
-    comparatorError,
     createGroupByReducer,
     createIntegerRange,
-    ASC,
-    DESC,
     createCustomReducer,
     createMaxReducer,
     createWhereFilter,
