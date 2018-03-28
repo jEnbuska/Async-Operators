@@ -28,6 +28,20 @@ describe('provider', () => {
         expect(results).toEqual([ 1, 2, 3, ]);
     });
 
+    test('fromCallback invoke onNext after onComplete', async() => {
+        const results = await provider.fromCallback(function ({ onNext, onComplete, }) {
+            onNext(1);
+            onNext(2);
+            onNext(3);
+            onComplete();
+            onNext(4);
+        })
+            .delay(5)
+            .reduce((acc, next) => [ ...acc, next, ], [])
+            .pull();
+        expect(results).toEqual([ 1, 2, 3, ]);
+    });
+
     test('fromRange', async() => {
         const results = await provider.fromRange({ from: 1, to: 4, })
             .reduce((acc, next) => [ ...acc, next, ], [])

@@ -50,19 +50,27 @@ function prepareCallbackProvider ({ name, index = 0, callback, }) {
             async onComplete (handle, upStreamRoot, callee) {
                 let i = 0;
                 const toBeResolved = [];
+                let completed;
                 try {
                     callback({
                         ...upStreamRoot,
                         async onNext (value) {
-                            if (downStream.isActive() && upStreamRoot.isActive()) {
+                            if (!completed && downStream.isActive() && upStreamRoot.isActive()) {
                                 const upStream = await upStreamRoot.extend();
                                 return downStream.onNext({ value, handle, order: [ i++, ], upStream, callee: name, });
+                            } else {
+                                console.error('onNext invoked from callback Provider after onComplete');
                             }
                         },
                         async onComplete () {
-                            await downStream.compete(Promise.all(toBeResolved));
-                            await downStream.onComplete(handle, upStreamRoot, name);
-                            upStreamRoot.resolve();
+                            if (!completed) {
+                                completed = true;
+                                await downStream.compete(Promise.all(toBeResolved));
+                                await downStream.onComplete(handle, upStreamRoot, name);
+                                upStreamRoot.resolve();
+                            } else {
+                                console.error('onComplete re-invoked from callback Provider');
+                            }
                         },
                     });
                     return upStreamRoot.promise;
