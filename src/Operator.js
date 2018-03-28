@@ -161,20 +161,20 @@ class Operator  {
 
     // ordered
     ordered () {
-        const callback =(e1, e2) => orderComparator(e1[0], e2[0]);
+        const callback =(a, b) => orderComparator(a.order, b.order);
         return this._create({ operator: prepareOrdered, callback, name: 'ordered', });
     }
     reverse () {
-        const callback = ((e1, e2) => orderComparator(e1[0], e2[0])*-1);
+        const callback = ((a, b) => orderComparator(a.order, b.order)*-1);
         return this._create({ operator: prepareOrdered, callback, name: 'reverse', });
     }
     sort (comparator = defaultComparator) {
-        const callback = (a, b) => comparator(a[1].value, b[1].value);
+        const callback = (a, b) => comparator(a.value, b.value);
         return this._create({ operator: prepareOrdered, callback, name: 'sort', });
     }
     sortBy (obj) {
         const objectComparator= createObjectComparator(obj);
-        const callback = (a, b) => objectComparator(a[1].value, b[1].value);
+        const callback = (a, b) => objectComparator(a.value, b.value);
         return this._create({ operator: prepareOrdered, callback, name: 'sortBy', });
     }
 

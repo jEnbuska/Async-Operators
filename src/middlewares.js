@@ -322,23 +322,20 @@ function prepareOrdered ({ callback, index, name = 'ordered', }) {
         let executions = {};
         return {
             onStart (handle) {
-                executions[handle] = {};
+                executions[handle] = [];
                 return downStream.onStart(handle, name);
             },
             onNext ({ value, handle, order, upStream, }) {
                 if (downStream.isActive()) {
-                    executions[handle][order] = {
-                        value,
-                        task () {
-                            downStream.onNext({ value, handle, order, upStream, callee: name, });
-                        },
-                    };
+                    executions[handle].push({ order, value, task () {
+                        downStream.onNext({ value, handle, order, upStream, callee: name, });
+                    }, });
                 }
             },
             onComplete (handle, upStreamRoot) {
                 let runnables;
                 try {
-                    runnables = Object.entries(executions[handle]).sort(callback).map((e) => e[1].task);
+                    runnables = executions[handle].sort(callback).map((e) => e.task);
                 } catch (error) {
                     runnables = [];
                     return downStream.onError(error, { middleware: { name, index, }, value: executions[handle], });
