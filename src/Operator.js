@@ -120,14 +120,12 @@ class Operator  {
         const acc = {};
         return this._create({ operator: prepareReduce, callback, name: 'groupBy', params: { acc, }, });
     }
-    sum (accumulator= numb => numb) {
+    sum (accumulator= numb => numb, acc = 0) {
         const callback = createSumReducer(accumulator);
-        const acc = 0;
         return this._create({ operator: prepareReduce, callback, name: 'sum', params: { acc, }, });
     }
-    sum_ (createAccumulator) {
+    sum_ (createAccumulator, acc = 0) {
         const callback = (value, scope) => createSumReducer(createAccumulator(scope))(value);
-        const acc = 0;
         return this._create({ operator: prepareReduce, callback, name: 'sum_', params: { acc, }, });
     }
     min (comparator = defaultComparator) {
