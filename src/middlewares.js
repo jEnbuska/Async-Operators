@@ -49,15 +49,16 @@ function prepareCallbackProvider ({ name, index = 0, callback, }) {
         return {
             async onComplete (handle, upStreamRoot, callee) {
                 let i = 0;
-                const toBeResolved = [];
                 let completed;
+                let promises = [];
                 try {
                     callback({
                         ...upStreamRoot,
                         async onNext (value) {
                             if (!completed && downStream.isActive() && upStreamRoot.isActive()) {
-                                const upStream = await upStreamRoot.extend();
-                                return downStream.onNext({ value, handle, order: [ i++, ], upStream, callee: name, });
+                                const order = [ i++, ];
+                                promises.push(upStreamRoot.extend().then((upStream) => downStream.onNext({ value, handle, upStream, order, callee: name, })));
+                                return promises[promises.length-1];
                             } else {
                                 console.error('onNext invoked from callback Provider after onComplete');
                             }
@@ -65,7 +66,7 @@ function prepareCallbackProvider ({ name, index = 0, callback, }) {
                         async onComplete () {
                             if (!completed) {
                                 completed = true;
-                                await downStream.compete(Promise.all(toBeResolved));
+                                await Promise.all(promises);
                                 await downStream.onComplete(handle, upStreamRoot, name);
                                 upStreamRoot.resolve();
                             } else {
@@ -136,18 +137,15 @@ function prepareParallel ({ params: { limit, }, name= 'parallel', }) {
     };
 }
 
-// Ok for emitter
 function prepareDelay ({ index, callback, name ='delay', }) {
-    return function createDelay (downStream) {
+    return async function createDelay (downStream) {
         let executions = {};
-        async function createDelay (value, handle, order, upStream, callee) {
-            let delay;
+        async function applyDelay (value, handle, order, upStream, callee) {
             try {
-                delay = callback(value);
+                await sleep(callback(value));
             } catch (e) {
                 return downStream.onError(e, { value, order, middleware: { name, index, callee, }, });
             }
-            await sleep(delay);
             downStream.onNext({ value, handle, order, upStream, callee: name, });
         }
         return {
@@ -158,13 +156,17 @@ function prepareDelay ({ index, callback, name ='delay', }) {
             onNext ({ value, handle, order, upStream, callee, }) {
                 if (downStream.isActive() && upStream.isActive()) {
                     const target = executions[handle];
-                    target.push(upStream.compete(createDelay(value, handle, order, upStream, callee)));
+                    target.push(upStream.compete(applyDelay(value, handle, order, upStream, callee)));
                     return target[target.length-1];
                 }
             },
             async onComplete (handle, upStreamRoot) {
                 await downStream.compete(Promise.all(executions[handle]));
                 return downStream.onComplete(handle, upStreamRoot, name);
+            },
+            onFinish (handle) {
+                delete executions[handle];
+                return downStream.onFinish(handle);
             },
         };
     };
