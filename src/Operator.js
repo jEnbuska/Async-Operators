@@ -53,8 +53,6 @@ const {
 class Operator  {
 
     static executions = 0;
-    [INDEX];
-    [MIDDLEWARES];
     constructor (middlewares = [], index = 0) {
         this[MIDDLEWARES] = middlewares;
         this[INDEX]= index;
@@ -66,17 +64,29 @@ class Operator  {
         }
         let out;
         const executionHandle= Operator.executions++;
-        const tail = await Operator._createTail(({ handle, value, }) => {
-            if (handle===executionHandle) out = value;
-        });
         let { [MIDDLEWARES]: middlewares, } = this;
-        const { onStart, onComplete, onFinish, } = await Operator._createMiddlewares([ ...middlewares, tail, ]);
+        const tail = await createRace();
+        const { onStart, onComplete, onFinish, } = await Operator._createMiddlewares([ ...middlewares,
+            {
+                ...tail,
+                async onComplete () {},
+                onError (e, info) {
+                    console.error(JSON.stringify({ info, message: e.message, }, null, 1));
+                    throw e;
+                },
+                onNext ({ value, handle, upStream, }) {
+                    if (upStream.isActive() && handle === executionHandle) out = value;
+                },
+                onStart () {},
+                onFinish () {},
+            },
+        ]);
         await onStart(executionHandle, 'pull');
         const upStream = await createRace();
         try {
-            const result = await onComplete(executionHandle, upStream, 'pull').then(() => out);
+            await onComplete(executionHandle, upStream, 'pull');
             onFinish(executionHandle);
-            return result;
+            return out;
         } catch (e) {
             tail.resolve();
             onFinish(executionHandle);
@@ -364,7 +374,7 @@ class Operator  {
 
     // parallel
     parallel (limit) {
-        if (limit<1 && !Number.isInteger(limit))
+        if (limit<1 || !Number.isInteger(limit))
             throw new Error('Expected parallel to receive a number positive integer as parameter.\nAll execution is parallel without limit by default.\nUse parallel with limit if you want to limit the number of parallel executions');
         return this._create({ operator: prepareParallel, params: { limit, }, });
     }
@@ -374,25 +384,6 @@ class Operator  {
         const { callback, params = {}, name, operator, } = middlewareBuildKit;
         const nextMiddleware = operator({ callback, name, index, params, });
         return new this.constructor([ ...this[MIDDLEWARES], nextMiddleware, ], index);
-    }
-
-    static async _createTail (doOnNext) {
-        const { resolve, isActive, ...rest }= await createRace();
-        return {
-            ...rest,
-            resolve,
-            isActive,
-            async onComplete () {},
-            onError (e, info) {
-                console.error(JSON.stringify({ info, message: e.message, }, null, 1));
-                throw e;
-            },
-            onNext ({ value, handle, upStream, }) {
-                if (isActive()) doOnNext({ handle, value, upStream, });
-            },
-            onStart () {},
-            onFinish () {},
-        };
     }
 }
 module.exports = Operator;

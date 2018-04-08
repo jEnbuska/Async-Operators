@@ -6,12 +6,12 @@ const prepareGeneratorProvider= ({ index = 0, name, callback, }) => async (downS
     let i = 0;
     let result = {};
     return {
-        async onComplete (handle, upStreamRoot) {
+        async onComplete (handle, upStreamRoot, callee) {
             while (true) {
                 try {
                     result = await downStream.compete(generator.next(result.value));
                 } catch (e) {
-                    downStream.onError(e, { middleware: { index, name, }, value: generator, });
+                    downStream.onError(e, { middleware: { index, name, callee, }, value: generator, });
                     if (downStream.isActive()) {
                         continue;
                     } else {
@@ -103,7 +103,7 @@ const prepareParallel = ({ params: { limit, }, name= 'parallel', }) => async dow
             }
         },
         async onComplete (handle, upStreamRoot) {
-            await downStream.compete(Promise.all([ ...executions[handle].pending, executeFutures(handle), ]));
+            await downStream.compete(Promise.all([ Promise.all(executions[handle].pending), executeFutures(handle), ]));
             return downStream.onComplete(handle, upStreamRoot, name);
         },
         onFinish (handle) {

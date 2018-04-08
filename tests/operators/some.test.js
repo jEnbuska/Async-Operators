@@ -27,7 +27,6 @@ describe('operator some', () => {
 
     test('some async should return true', async () => {
         const result = await provider.fromIterable([ sleepAndReturn(10, 6), sleepAndReturn(15, 10), sleepAndReturn(13, 4), sleepAndReturn(11, 3), ])
-            .parallel()
             .await()
             .some(it => it<5)
             .pull();

@@ -135,7 +135,6 @@ describe('race', () => {
                 yield 200;
             })
             .map(int => sleepAndReturn(int, int))
-            .parallel()
             .await()
             .forEach(int => intermediate.push(int))
             .takeUntil(it => it===20)

@@ -28,7 +28,6 @@ describe('examples', async () => {
             .await() // [ 7 ,1 ], [ 1, 2 ]
             .flatten() // 7, 1, 1, 2
             .map(val => sleepAndReturn(val*10, [ val, val*2, ]))
-            .parallel()
             .await() // [ 1, 2 ], [ 1, 2 ] [ 2, 4 ] [ 6, 18 ]
             .flatten()// 1, 2, 1, 2, 2, 4, 6, 18
             .reduce((acc, next) => [ ...acc, next, ], [])
