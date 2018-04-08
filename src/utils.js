@@ -1,6 +1,10 @@
 const { values, } = Object;
 
 const NOT_SET = Symbol('NOT_SET');
+const INDEX = Symbol('INDEX');
+const MIDDLEWARES = Symbol('MIDDLEWARES');
+const SHARED = Symbol('SHARED');
+const TAIL = Symbol('TAIL');
 
 function defaultFilter (val) {
     return !!val;
@@ -437,9 +441,12 @@ module.exports = {
     createGeneratorFromIterator,
     sleep,
     createTakeLastByFilter,
-    createResolvable,
     createGetDelay,
     createTakeLastFilter,
     createLatestByCanceller,
     createLatestCanceller,
+    INDEX,
+    MIDDLEWARES,
+    SHARED,
+    TAIL,
 };

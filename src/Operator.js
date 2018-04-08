@@ -27,6 +27,8 @@ const { createFirstEndResolver,
     createGeneratorFromIterator,
     createLatestByCanceller,
     createLatestCanceller,
+    INDEX,
+    MIDDLEWARES,
 } = require('./utils');
 
 /* eslint-disable consistent-return */
@@ -48,14 +50,11 @@ const {
     prepareDownStreamFilter,
     prepareDelay,  } = require('./middlewares');
 
-const INDEX = Symbol('INDEX');
-const MIDDLEWARES = Symbol('MIDDLEWARES');
 class Operator  {
 
     static executions = 0;
     [INDEX];
     [MIDDLEWARES];
-
     constructor (middlewares = [], index = 0) {
         this[MIDDLEWARES] = middlewares;
         this[INDEX]= index;
@@ -65,40 +64,29 @@ class Operator  {
         if (_.length) {
             throw new Error('"pull" should be called without parameters.');
         }
-        const tail = await Operator._createTail();
         let out;
-        const handle= Operator.executions++;
-        const { onStart, onComplete, onFinish, } = await this._createMiddlewares({
-            ...tail,
-            onNext ({ value, handle, }) {
-                if (tail.isActive() && handle === handle) {
-                    out = value;
-                }
-            },
-            onError (e, info) {
-                console.error(JSON.stringify({ info, message: e.message, }, null, 1));
-                throw e;
-            },
-            onStart () {},
-            onFinish () {},
+        const executionHandle= Operator.executions++;
+        const tail = await Operator._createTail(({ handle, value, }) => {
+            if (handle===executionHandle) out = value;
         });
-        await onStart(handle, 'pull');
+        let { [MIDDLEWARES]: middlewares, } = this;
+        const { onStart, onComplete, onFinish, } = await Operator._createMiddlewares([ ...middlewares, tail, ]);
+        await onStart(executionHandle, 'pull');
         const upStream = await createRace();
         try {
-            const result = await onComplete(handle, upStream, 'pull').then(() => out);
-            onFinish(handle);
+            const result = await onComplete(executionHandle, upStream, 'pull').then(() => out);
+            onFinish(executionHandle);
             return result;
         } catch (e) {
             tail.resolve();
-            onFinish(handle);
+            onFinish(executionHandle);
             throw e;
         }
     }
 
-    async _createMiddlewares (puller) {
-        const { [MIDDLEWARES]: middlewares, } = this;
-        let acc = puller;
-        for (let i = middlewares.length-1; i>=0; i--) {
+    static async _createMiddlewares (middlewares) {
+        let acc = middlewares[middlewares.length-1];
+        for (let i = middlewares.length-2; i>=0; i--) {
             const md = await middlewares[i](acc);
             acc = { ...acc, ...md, };
         }
@@ -381,23 +369,29 @@ class Operator  {
         return this._create({ operator: prepareParallel, params: { limit, }, });
     }
 
-    _create (...middlewares) {
+    _create (middlewareBuildKit) {
         const index = this[INDEX] + 1;
-        const added = middlewares.map(({ callback, params = {}, name, operator, }) => operator({ callback, name, index, params, }));
-        return new Operator(this[MIDDLEWARES].concat(added), index);
+        const { callback, params = {}, name, operator, } = middlewareBuildKit;
+        const nextMiddleware = operator({ callback, name, index, params, });
+        return new this.constructor([ ...this[MIDDLEWARES], nextMiddleware, ], index);
     }
 
-    static async _createTail () {
+    static async _createTail (doOnNext) {
         const { resolve, isActive, ...rest }= await createRace();
         return {
             ...rest,
             resolve,
             isActive,
             async onComplete () {},
-            onError (error, { index, name, value, }) {
-                throw new Error(JSON.stringify({ error, index, name, value, }, null, 1));
+            onError (e, info) {
+                console.error(JSON.stringify({ info, message: e.message, }, null, 1));
+                throw e;
             },
-            onNext () {},
+            onNext ({ value, handle, upStream, }) {
+                if (isActive()) doOnNext({ handle, value, upStream, });
+            },
+            onStart () {},
+            onFinish () {},
         };
     }
 }

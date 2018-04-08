@@ -1,5 +1,5 @@
 const { provider, } = require('../');
-const { sleepAndReturn, createDuration, } = require('./common');
+const { sleepAndReturn, } = require('./common');
 
 describe('examples', async () => {
     test('parallel map, distinct and filter', async () => {
