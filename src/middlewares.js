@@ -1,7 +1,7 @@
 /* eslint-disable consistent-return */
 const { sleep, } = require('./utils');
 
-const generatorProvider$= ({ index = 0, name, callback, }) => async (downStream) => {
+const generatorProvider$ = ({ index = 0, name, callback, }) => async (downStream) => {
     const generator = await callback();
     let i = 0;
     let result = {};
@@ -377,6 +377,20 @@ const map$ = ({ name = 'map', callback, index, }) => (downStream) => ({
     },
 });
 
+const fap$ = ({ name = 'fap', callback, index, }) => (downStream) => ({
+    onNext ({ value, handle, order, upStream, callee, }) {
+        let out;
+        try {
+            out = callback(value);
+        } catch (e) {
+            return downStream.onError(e, { middleware: { index, name, callee, }, value, });
+        }
+        if (out) {
+            return downStream.onNext({ value: out, handle, order, upStream, callee: name, });
+        }
+    },
+});
+
 const catch$ = ({ callback, index, name = 'catch', }) => (downStream) => ({
     onError (error, { value, middleware, continuousError= [], }, handle) {
         const errorDescription = { middleware, value: value === undefined ? '$undefined': value, continuousError, handle, };
@@ -453,6 +467,7 @@ module.exports = {
     filter$,
     forEach$,
     map$,
+    fap$,
     catch$,
     preUpStreamFilter$,
     takeLimit$,

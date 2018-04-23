@@ -5,6 +5,7 @@ const INDEX = Symbol('INDEX');
 const MIDDLEWARES = Symbol('MIDDLEWARES');
 const SHARED = Symbol('SHARED');
 const TAIL = Symbol('TAIL');
+const CREATE = Symbol('CREATE');
 
 function defaultFilter (val) {
     return !!val;
@@ -411,6 +412,22 @@ function createLatestByCanceller (keys) {
     };
 }
 
+async function createMiddlewares (middlewares) {
+    let acc = middlewares[middlewares.length-1];
+    for (let i = middlewares.length-2; i>=0; i--) {
+        const current = acc = { ...acc, ...await middlewares[i](acc), };
+        let { onNext, } = acc;
+        if (onNext.name!=='proxy') {
+            acc.onNext = function proxy (param) {
+                if (param.upStream.isActive() && current.isActive()) {
+                    return onNext(param);
+                }
+            };
+        }
+    }
+    return acc;
+}
+
 module.exports = {
     NOT_SET,
     ASC,
@@ -445,8 +462,10 @@ module.exports = {
     createTakeLastFilter,
     createLatestByCanceller,
     createLatestCanceller,
+    createMiddlewares,
     INDEX,
     MIDDLEWARES,
     SHARED,
     TAIL,
+    CREATE,
 };

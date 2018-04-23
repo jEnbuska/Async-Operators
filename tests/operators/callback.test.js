@@ -1,5 +1,5 @@
 import { provider, } from '../../';
-import { sleep, createDuration, } from '../common';
+import { sleep, } from '../common';
 
 describe('provider from callback', () => {
 
