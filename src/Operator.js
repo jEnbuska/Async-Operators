@@ -66,7 +66,7 @@ class Operator  {
         const executionHandle= Operator.executions++;
         let { [MIDDLEWARES]: middlewares, } = this;
         const tail = await createRace();
-        const { onStart, onComplete, onFinish, } = await Operator._createMiddlewares([ ...middlewares,
+        const { onStart, onComplete, } = await Operator._createMiddlewares([ ...middlewares,
             {
                 ...tail,
                 async onComplete () {},
@@ -78,18 +78,15 @@ class Operator  {
                     if (upStream.isActive() && handle === executionHandle) out = value;
                 },
                 onStart () {},
-                onFinish () {},
             },
         ]);
         await onStart(executionHandle, 'pull');
         const upStream = await createRace();
         try {
             await onComplete(executionHandle, upStream, 'pull');
-            onFinish(executionHandle);
             return out;
         } catch (e) {
             tail.resolve();
-            onFinish(executionHandle);
             throw e;
         }
     }

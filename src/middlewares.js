@@ -104,11 +104,8 @@ const prepareParallel = ({ params: { limit, }, name= 'parallel', }) => async dow
         },
         async onComplete (handle, upStreamRoot) {
             await downStream.compete(Promise.all([ Promise.all(executions[handle].pending), executeFutures(handle), ]));
-            return downStream.onComplete(handle, upStreamRoot, name);
-        },
-        onFinish (handle) {
             delete executions[handle];
-            downStream.onFinish(handle);
+            return downStream.onComplete(handle, upStreamRoot, name);
         },
     };
     async function executeFutures (handle) {
@@ -143,11 +140,8 @@ const prepareDelay = ({ index, callback, name ='delay', }) => async downStream =
         },
         async onComplete (handle, upStreamRoot) {
             await downStream.compete(Promise.all(executions[handle]));
-            return downStream.onComplete(handle, upStreamRoot, name);
-        },
-        onFinish (handle) {
             delete executions[handle];
-            return downStream.onFinish(handle);
+            return downStream.onComplete(handle, upStreamRoot, name);
         },
     };
     async function applyDelay (value, handle, order, upStream, callee) {
@@ -177,11 +171,8 @@ const prepareAwait = ({ index, name='await', }) => downStream => {
         },
         async onComplete (handle, upStreamRoot) {
             await downStream.compete(Promise.all(executions[handle]));
-            return downStream.onComplete(handle, upStreamRoot, name);
-        },
-        onFinish (handle) {
             delete executions[handle];
-            downStream.onFinish(handle);
+            return downStream.onComplete(handle, upStreamRoot, name);
         },
     };
     async function applyAwait (value, handle, order, upStream, callee) {
@@ -195,7 +186,6 @@ const prepareAwait = ({ index, name='await', }) => downStream => {
     }
 };
 
-// Ok for emitter
 const prepareGenerator = ({ callback, name = 'generator', index, }) => downStream => {
     const executions = {};
     return {
@@ -212,11 +202,8 @@ const prepareGenerator = ({ callback, name = 'generator', index, }) => downStrea
         },
         async onComplete (handle, upStreamRoot) {
             await downStream.compete(Promise.all(executions[handle]));
-            return downStream.onComplete(handle, upStreamRoot, name);
-        },
-        onFinish (handle) {
             delete executions[handle];
-            downStream.onFinish(handle);
+            return downStream.onComplete(handle, upStreamRoot, name);
         },
     };
     async function generatorResolver (value, handle, order = [ 0, ], upStream, callee) {
@@ -268,11 +255,8 @@ const prepareReduceUntil = ({ callback, index, name, params: { defaultValue, }, 
         },
         async onComplete (handle, upStreamRoot) {
             downStream.onNext({ value: executions[handle], handle, order: [ 0, ], upStream: upStreamRoot, callee: name, });
-            return downStream.onComplete(handle, upStreamRoot, name);
-        },
-        onFinish (handle) {
             delete executions[handle];
-            downStream.onFinish(handle);
+            return downStream.onComplete(handle, upStreamRoot, name);
         },
     };
 };
@@ -298,11 +282,8 @@ const prepareLast = ({ index, callback, name = 'last', }) => downStream => {
         },
         async onComplete (handle, upStreamRoot) {
             executions[handle].forEach(next => next.task());
-            return downStream.onComplete(handle, upStreamRoot, name);
-        },
-        onFinish (handle) {
             delete executions[handle];
-            downStream.onFinish(handle);
+            return downStream.onComplete(handle, upStreamRoot, name);
         },
     };
 };
@@ -330,11 +311,8 @@ const prepareOrdered = ({ callback, index, name = 'ordered', }) => downStream =>
                 return downStream.onError(error, { middleware: { name, index, }, value: executions[handle], });
             }
             for (const next of runnables) next();
-            return downStream.onComplete(handle, upStreamRoot, name);
-        },
-        onFinish (handle) {
             delete executions[handle];
-            downStream.onFinish(handle);
+            return downStream.onComplete(handle, upStreamRoot, name);
         },
     };
 };
@@ -343,22 +321,19 @@ const prepareDefault = ({ name = 'default', params: { defaultValue, }, }) => dow
     const executions = {};
     return {
         onStart (handle) {
-            executions[handle] = false;
+            executions[handle] = true;
             downStream.onStart(handle, name);
         },
         onNext ({ value, handle, order, upStream, }) {
             if (downStream.isActive() && upStream.isActive()) {
-                executions[handle] = true;
+                executions[handle] = false;
                 return downStream.onNext({ value, handle, order, upStream, callee: name, });
             }
         },
         onComplete (handle, upStreamRoot) {
-            if (!executions[handle]) downStream.onNext({ value: defaultValue, handle, order: [ 0, ], upStream: upStreamRoot, callee: name, });
-            return downStream.onComplete(handle, upStreamRoot, name);
-        },
-        onFinish (handle) {
+            if (executions[handle]) downStream.onNext({ value: defaultValue, handle, order: [ 0, ], upStream: upStreamRoot, callee: name, });
             delete executions[handle];
-            downStream.onFinish(handle);
+            return downStream.onComplete(handle, upStreamRoot, name);
         },
     };
 };
@@ -381,11 +356,8 @@ const prepareReduce = ({ name = 'reduce', index, callback, params: { acc, }, }) 
         },
         onComplete (handle, upStreamRoot) {
             downStream.onNext({ value: executions[handle], handle, order: [ 0, ], upStream: upStreamRoot, callee: name, });
-            return downStream.onComplete(handle, upStreamRoot, name);
-        },
-        onFinish (handle) {
             delete executions[handle];
-            downStream.onFinish(handle);
+            return downStream.onComplete(handle, upStreamRoot, name);
         },
     };
 };
