@@ -166,8 +166,8 @@ class Operator  {
     }
 
     // delays
-    delay (timingMs = 0) {
-        const callback = createGetDelay(timingMs);
+    delay (ms = 0) {
+        const callback = createGetDelay(ms);
         return this[CREATE]({ operator: delay$, callback, });
     }
 
