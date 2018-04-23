@@ -95,7 +95,7 @@ class Operator  {
         let acc = middlewares[middlewares.length-1];
         for (let i = middlewares.length-2; i>=0; i--) {
             const current = acc = { ...acc, ...await middlewares[i](acc), };
-            let {onNext} = acc;
+            let { onNext, } = acc;
             if (onNext && !onNext.__proxy__) {
                 onNext.__proxy__ = true;
                 acc.onNext = (param) => {
