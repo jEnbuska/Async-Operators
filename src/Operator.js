@@ -99,11 +99,6 @@ class Operator  {
         const callback = createCustomReducer(reducer);
         return this[CREATE]({ operator: reduce$, callback, params: { acc, }, });
     }
-
-    reduce_ (createReducer, acc) {
-        const callback = (value, acc, scope) => createCustomReducer(scope)(value, acc);
-        return this[CREATE]({ operator: reduce$, callback, params: { acc, }, name: 'reduce_', });
-    }
     groupBy (keys) {
         const callback = createGroupByReducer(keys);
         const acc = {};
@@ -113,29 +108,15 @@ class Operator  {
         const callback = createSumReducer(accumulator);
         return this[CREATE]({ operator: reduce$, callback, name: 'sum', params: { acc, }, });
     }
-    sum_ (createAccumulator, acc = 0) {
-        const callback = (value, scope) => createSumReducer(createAccumulator(scope))(value);
-        return this[CREATE]({ operator: reduce$, callback, name: 'sum_', params: { acc, }, });
-    }
     min (comparator = defaultComparator) {
         const callback = createMinReducer(comparator);
         const acc =  undefined;
         return this[CREATE]({ operator: reduce$, callback, name: 'min', params: { acc, }, });
     }
-    min_ (createComparator) {
-        const callback = (value, scope) => createMinReducer(createComparator(scope))(value);
-        const acc =  undefined;
-        return this[CREATE]({ operator: reduce$, callback, name: 'min_', params: { acc, }, });
-    }
     max (comparator = defaultComparator) {
         const callback = createMaxReducer(comparator);
         const acc = undefined;
         return this[CREATE]({ operator: reduce$,  callback, name: 'max', params: { acc, }, });
-    }
-    max_ (createComparator) {
-        const callback = (value, scope) => createMaxReducer(createComparator(scope))(value);
-        const acc = undefined;
-        return this[CREATE]({ operator: reduce$,  callback, name: 'max_', params: { acc, }, });
     }
     lastBy (keys) {
         const callback = createTakeLastByFilter(keys);
@@ -190,10 +171,6 @@ class Operator  {
         const callback = createGetDelay(timingMs);
         return this[CREATE]({ operator: delay$, callback, });
     }
-    delay_ (createTiming) {
-        const callback = (value, scope) => (createGetDelay(createTiming(scope))());
-        return this[CREATE]({ operator: delay$, callback, name: 'delay_', });
-    }
 
     // generators
     generator (producer) {
@@ -205,17 +182,9 @@ class Operator  {
         }
         return this[CREATE]({ operator: generator$, callback: producer, });
     }
-    generator_ (createProducer) {
-        const callback = (value, scope) => createProducer(scope)(value);
-        return this[CREATE]({ operator: generator$, callback, name: 'generator_', });
-    }
     flatten (iterator) {
         const callback = createGeneratorFromIterator(iterator);
         return this[CREATE]({ operator: generator$, callback, name: 'flatten', });
-    }
-    flatten_ (createIterator) {
-        const callback = (value, scope) => createIterator(scope)(createGeneratorFromIterator(value));
-        return this[CREATE]({ operator: generator$, callback, name: 'flatten_', });
     }
     keys () {
         const callback = createGeneratorFromIterator(Object.keys);
@@ -234,34 +203,17 @@ class Operator  {
     map (callback) {
         return this[CREATE]({ operator: map$, callback, });
     }
-    map_ (createMapper = (scope) => () => scope) {
-        const callback = (value, scope) => createMapper(scope)(value);
-        return this[CREATE]({ operator: map$, callback, name: 'map_', });
-    }
     pick (keys) {
         const callback = createPickMapper(keys);
         return this[CREATE]({ operator: map$, callback, name: 'pick', });
-    }
-    pick_ (createKeys) {
-        const callback= (value, scope) => createOmitMapper(createKeys(scope));
-        return this[CREATE]({ operator: map$, callback, name: 'pick_', });
     }
     omit (keys) {
         const callback= createOmitMapper(keys);
         return this[CREATE]({ operator: map$, callback, name: 'omit', });
     }
-    omit_ (createKeys) {
-        const callback= (value, scope) => createOmitMapper(createKeys(scope));
-        return this[CREATE]({ operator: map$, callback, name: 'omit_', });
-    }
     scan (scanner, acc = 0) {
         const callback= (value) => acc = scanner(acc, value);
         return this[CREATE]({ operator: map$, callback, name: 'scan', });
-    }
-
-    scan_ (createScanner, acc = 0) {
-        const callback = (value, scope) => acc = createScanner(scope)(value, acc);
-        return this[CREATE]({ operator: map$, callback, name: 'scan_', });
     }
 
     // filter
@@ -269,33 +221,17 @@ class Operator  {
         const callback = (value) => predicate(value);
         return this[CREATE]({ operator: filter$, callback, });
     }
-    filter_ (createPredicate) {
-        const callback = (value, scope) => createPredicate(scope)(value);
-        return this[CREATE]({ operator: filter$, callback, name: 'filter_', });
-    }
     reject (predicate) {
         const callback = (value) => !predicate(value);
         return this[CREATE]({ operator: filter$, callback, name: 'reject', });
-    }
-    reject_ (scopePredicate) {
-        const callback = (value, scope) => !scopePredicate(scope)(value);
-        return this[CREATE]({ operator: filter$, callback, name: 'reject_', });
     }
     distinctBy (keys) {
         const callback = createDistinctByFilter(keys);
         return this[CREATE]({ operator: filter$,  callback, name: 'distinctBy', });
     }
-    distinctBy_ (createKeys) {
-        const callback = (value, scope) => createDistinctByFilter(createKeys(scope));
-        return this[CREATE]({ operator: filter$,  callback, name: 'distinctBy_', });
-    }
     where (obj) {
         const callback = createWhereFilter(obj);
         return this[CREATE]({ operator: filter$, callback, name: 'where', });
-    }
-    where_ (createObjectTemplate) {
-        const callback = (value, scope) => createWhereFilter(createObjectTemplate(scope));
-        return this[CREATE]({ operator: filter$, callback, name: 'where_', });
     }
     distinct () {
         const callback = createDistinctFilter();
@@ -336,11 +272,6 @@ class Operator  {
         return this[CREATE]({ operator: forEach$, callback: (value) => callback(value), });
     }
 
-    forEach_ (createCallback) {
-        const callback = (value, scope) => createCallback(scope)(value);
-        return this[CREATE]({ operator: forEach$, callback, name: 'forEach_', });
-    }
-
     // downStream filters
     latest () {
         const callback = createLatestCanceller();
@@ -361,11 +292,6 @@ class Operator  {
     // onError
     catch (callback = (error, info) => console.error(JSON.stringify({ error, info, }, null, 1))) {
         return this[CREATE]({ operator: catch$, callback, });
-    }
-
-    catch_ (createCallback) {
-        const callback = (value, scope) => createCallback(scope)(value);
-        return this[CREATE]({ operator: catch$, callback, name: 'catch_', });
     }
 
     // parallel
