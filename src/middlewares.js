@@ -105,9 +105,10 @@ const parallel$ = ({ params: { limit, }, name= 'parallel', }) => async downStrea
     async function executeFutures (handle) {
         const context = executions[handle];
         const resolveNow = [];
-        const to = context.index + (limit ? limit-context.parallel: context.futures.length);
-        while (context.index < to && context.futures.length > context.index)
+        const to = context.index + (limit ? limit - context.parallel : context.futures.length);
+        while (context.index < to && context.futures.length > context.index) {
             resolveNow.push(context.futures[context.index++]);
+        }
         context.parallel+=resolveNow.length;
         const promises = resolveNow.map(async function (createPromise) {
             await createPromise();
@@ -408,16 +409,11 @@ const preUpStreamFilter$ = ({ index, name, callback, }) => async (downStream) =>
     return {
         ...self,
         onNext ({ value, handle, order, upStream, callee, }) {
-            let accept;
             try {
-                accept = callback(value);
+                if (callback(value)) return downStream.onNext({ value, handle, order, upStream, callee: name, });
+                else self.resolve();
             } catch (e) {
                 return downStream.onError(e, { value, middleware: { index, name, callee, }, });
-            }
-            if (accept) {
-                return downStream.onNext({ value, handle, order, upStream, callee: name, });
-            } else {
-                self.resolve();
             }
         },
     };

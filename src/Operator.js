@@ -30,7 +30,7 @@ const { createFirstEndResolver,
     createMiddlewares,
     INDEX,
     MIDDLEWARES,
-    CREATE
+    CREATE,
 } = require('./utils');
 
 /* eslint-disable consistent-return */
@@ -85,13 +85,12 @@ class Operator  {
         ]);
         await onStart(executionHandle, 'pull');
         const upStream = await createRace();
-        try {
-            await onComplete(executionHandle, upStream, 'pull');
-            return out;
-        } catch (e) {
-            tail.resolve();
-            throw e;
-        }
+        return onComplete(executionHandle, upStream, 'pull')
+            .then(() => out)
+            .catch(e => {
+                tail.resolve();
+                throw e;
+            });
     }
 
     // reduce
@@ -261,27 +260,25 @@ class Operator  {
         return this[CREATE]({ operator: preUpStreamFilter$, callback, name: 'takeUntil',  });
     }
 
-    // postUpstreamFilters
-    take (max) {
-        const callback = createTakeLimiter(max);
-        return this[CREATE]({ operator: takeLimit$, callback, name: 'take', });
-    }
-
-    // forEach
-    forEach (callback) {
-        return this[CREATE]({ operator: forEach$, callback: (value) => callback(value), });
-    }
-
     // downStream filters
     latest () {
         const callback = createLatestCanceller();
         return this[CREATE]({ operator: downStreamFilter$, callback, name: 'latest', });
     }
-
     latestBy (keys = []) {
         if (!Array.isArray(keys)) throw new Error('Invalid first parameter passed to "latestBy", Expected to receive an array');
         const callback = createLatestByCanceller(keys);
         return this[CREATE]({ operator: downStreamFilter$, callback, name: 'latestBy', });
+    }
+
+    // postUpstreamFilters
+    take (max) {
+        const callback = createTakeLimiter(max);
+        return this[CREATE]({ operator: takeLimit$, callback, name: 'take', });
+    }
+    // forEach
+    forEach (callback) {
+        return this[CREATE]({ operator: forEach$, callback: (value) => callback(value), });
     }
 
     // await
