@@ -1,7 +1,7 @@
 /* eslint-disable consistent-return */
 const { sleep, } = require('./utils');
 
-const prepareGeneratorProvider= ({ index = 0, name, callback, }) => async (downStream) => {
+const generatorProvider$= ({ index = 0, name, callback, }) => async (downStream) => {
     const generator = await callback();
     let i = 0;
     let result = {};
@@ -31,14 +31,14 @@ const prepareGeneratorProvider= ({ index = 0, name, callback, }) => async (downS
     };
 };
 
-const prepareValueProvider = ({ name, params: { value, }, }) => downStream => ({
+const valueProvider$ = ({ name, params: { value, }, }) => downStream => ({
     async onComplete (handle, upStreamRoot) {
         downStream.onNext({ value, handle, order: [ 0, ], upStream: upStreamRoot, callee: name, });
         return downStream.onComplete(handle, upStreamRoot, name);
     },
 });
 
-const prepareCallbackProvider = ({ name, index = 0, callback, }) => downStream => {
+const callbackProvider$ = ({ name, index = 0, callback, }) => downStream => {
     let i = 0;
     let completed;
     let promises = [];
@@ -75,7 +75,7 @@ const prepareCallbackProvider = ({ name, index = 0, callback, }) => downStream =
     };
 };
 
-const prepareParallel = ({ params: { limit, }, name= 'parallel', }) => async downStream => {
+const parallel$ = ({ params: { limit, }, name= 'parallel', }) => async downStream => {
     const executions = {};
     return {
         onStart (handle) {
@@ -118,7 +118,7 @@ const prepareParallel = ({ params: { limit, }, name= 'parallel', }) => async dow
     }
 };
 
-const prepareDelay = ({ index, callback, name ='delay', }) => async downStream => {
+const delay$ = ({ index, callback, name ='delay', }) => async downStream => {
     const executions = {};
     return {
         onStart (handle) {
@@ -147,7 +147,7 @@ const prepareDelay = ({ index, callback, name ='delay', }) => async downStream =
 };
 
 // Ok for emitter
-const prepareAwait = ({ index, name='await', }) => downStream => {
+const await$ = ({ index, name='await', }) => downStream => {
     const executions = {};
     return {
         onStart (handle) {
@@ -176,7 +176,7 @@ const prepareAwait = ({ index, name='await', }) => downStream => {
     }
 };
 
-const prepareGenerator = ({ callback, name = 'generator', index, }) => downStream => {
+const generator$ = ({ callback, name = 'generator', index, }) => downStream => {
     const executions = {};
     return {
         onStart (handle) {
@@ -219,7 +219,7 @@ const prepareGenerator = ({ callback, name = 'generator', index, }) => downStrea
     }
 };
 
-const prepareReduceUntil = ({ callback, index, name, params: { defaultValue, }, }) => async downStream => {
+const reduceUntil$ = ({ callback, index, name, params: { defaultValue, }, }) => async downStream => {
     const executions = {};
     const self = await downStream.extend();
     return {
@@ -247,7 +247,7 @@ const prepareReduceUntil = ({ callback, index, name, params: { defaultValue, }, 
     };
 };
 
-const prepareLast = ({ index, callback, name = 'last', }) => downStream => {
+const last$ = ({ index, callback, name = 'last', }) => downStream => {
     const executions = {};
     return {
         onStart (handle) {
@@ -272,7 +272,7 @@ const prepareLast = ({ index, callback, name = 'last', }) => downStream => {
     };
 };
 
-const prepareOrdered = ({ callback, index, name = 'ordered', }) => downStream => {
+const ordered$ = ({ callback, index, name = 'ordered', }) => downStream => {
     let executions = {};
     return {
         onStart (handle) {
@@ -299,7 +299,7 @@ const prepareOrdered = ({ callback, index, name = 'ordered', }) => downStream =>
     };
 };
 
-const prepareDefault = ({ name = 'default', params: { defaultValue, }, }) => downStream => {
+const default$ = ({ name = 'default', params: { defaultValue, }, }) => downStream => {
     const executions = {};
     return {
         onStart (handle) {
@@ -318,7 +318,7 @@ const prepareDefault = ({ name = 'default', params: { defaultValue, }, }) => dow
     };
 };
 
-const prepareReduce = ({ name = 'reduce', index, callback, params: { acc, }, }) => downStream => {
+const reduce$ = ({ name = 'reduce', index, callback, params: { acc, }, }) => downStream => {
     const executions = {};
     return {
         onStart (handle) {
@@ -340,7 +340,7 @@ const prepareReduce = ({ name = 'reduce', index, callback, params: { acc, }, }) 
     };
 };
 
-const prepareFilter = ({ index, callback, name = 'filter', }) =>  (downStream) => ({
+const filter$ = ({ index, callback, name = 'filter', }) =>  (downStream) => ({
     onNext ({ value, handle, order, upStream, callee, }) {
         let accept;
         try {
@@ -354,7 +354,7 @@ const prepareFilter = ({ index, callback, name = 'filter', }) =>  (downStream) =
     },
 });
 
-const prepareForEach = ({ callback, index, name = 'forEach', }) => async (downStream) => ({
+const forEach$ = ({ callback, index, name = 'forEach', }) => async (downStream) => ({
     onNext ({ value, handle, order, upStream, callee, }) {
         try {
             callback(value);
@@ -365,7 +365,7 @@ const prepareForEach = ({ callback, index, name = 'forEach', }) => async (downSt
     },
 });
 
-const prepareMap = ({ name = 'map', callback, index, }) => (downStream) => ({
+const map$ = ({ name = 'map', callback, index, }) => (downStream) => ({
     onNext ({ value, handle, order, upStream, callee, }) {
         let out;
         try {
@@ -377,7 +377,7 @@ const prepareMap = ({ name = 'map', callback, index, }) => (downStream) => ({
     },
 });
 
-const prepareCatch = ({ callback, index, name = 'catch', }) => (downStream) => ({
+const catch$ = ({ callback, index, name = 'catch', }) => (downStream) => ({
     onError (error, { value, middleware, continuousError= [], }, handle) {
         const errorDescription = { middleware, value: value === undefined ? '$undefined': value, continuousError, handle, };
         try {
@@ -389,7 +389,7 @@ const prepareCatch = ({ callback, index, name = 'catch', }) => (downStream) => (
     },
 });
 
-const preparePreUpStreamFilter = ({ index, name, callback, }) => async (downStream) => {
+const preUpStreamFilter$ = ({ index, name, callback, }) => async (downStream) => {
     const self = await downStream.extend();
     return {
         ...self,
@@ -409,7 +409,7 @@ const preparePreUpStreamFilter = ({ index, name, callback, }) => async (downStre
     };
 };
 
-const prepareTakeLimit = ({ name, index, callback, }) => async (downStream) => {
+const takeLimit$ = ({ name, index, callback, }) => async (downStream) => {
     const self = await downStream.extend();
     return {
         ...self,
@@ -430,7 +430,7 @@ const prepareTakeLimit = ({ name, index, callback, }) => async (downStream) => {
     };
 };
 
-const prepareDownStreamFilter = ({ name, callback, }) => (downStream) => ({
+const downStreamFilter$ = ({ name, callback, }) => (downStream) => ({
     onNext ({ value, handle, order, upStream, }) {
         callback(upStream, value);
         return downStream.onNext({ value, order, handle, upStream, callee: name, });
@@ -438,23 +438,23 @@ const prepareDownStreamFilter = ({ name, callback, }) => (downStream) => ({
 });
 
 module.exports = {
-    prepareValueProvider,
-    prepareGeneratorProvider,
-    prepareCallbackProvider,
-    prepareAwait,
-    prepareParallel,
-    prepareDelay,
-    prepareGenerator,
-    prepareLast,
-    prepareReduceUntil,
-    prepareDefault,
-    prepareOrdered,
-    prepareReduce,
-    prepareFilter,
-    prepareForEach,
-    prepareMap,
-    prepareCatch,
-    preparePreUpStreamFilter,
-    prepareTakeLimit,
-    prepareDownStreamFilter,
+    valueProvider$,
+    generatorProvider$,
+    callbackProvider$,
+    await$,
+    parallel$,
+    delay$,
+    generator$,
+    last$,
+    reduceUntil$,
+    default$,
+    ordered$,
+    reduce$,
+    filter$,
+    forEach$,
+    map$,
+    catch$,
+    preUpStreamFilter$,
+    takeLimit$,
+    downStreamFilter$,
 };
