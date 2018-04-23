@@ -177,7 +177,7 @@ const await$ = ({ index, name='await', }) => downStream => {
     }
 };
 
-const generator$ = ({ callback, name = 'generator', index, }) => downStream => {
+const generator$ = ({ callback: createGenerator, name = 'generator', index, }) => downStream => {
     const executions = {};
     return {
         onStart (handle) {
@@ -197,7 +197,7 @@ const generator$ = ({ callback, name = 'generator', index, }) => downStream => {
     };
     async function generatorResolver (value, handle, order = [ 0, ], upStream, callee) {
         let gen;
-        gen = await callback(value);
+        gen = await createGenerator(value);
         let result = {};
         let i = 0;
         const promises = [];
