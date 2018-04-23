@@ -359,26 +359,6 @@ function createGeneratorFromIterator (createIterator = Object.values) {
     };
 }
 
-function createResolvable () {
-    return new Promise(returnResolvable => {
-        const _promise = new Promise(res => {
-            let resolved = false;
-            return returnResolvable({
-                isResolved () {
-                    return resolved;
-                },
-                get promise () {
-                    return _promise;
-                },
-                get resolve () {
-                    resolved = true;
-                    return res;
-                },
-            });
-        });
-    });
-}
-
 function createGetDelay (from) {
     if (Number.isInteger(from)) {
         return () => from;
