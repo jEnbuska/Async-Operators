@@ -88,18 +88,12 @@ const prepareParallel = ({ params: { limit, }, name= 'parallel', }) => async dow
             return downStream.onStart(handle);
         },
         onNext ({ value, handle, order, upStream, }) {
-            if (downStream.isActive() && upStream.isActive()) {
-                const target = executions[handle];
-                target.futures.push(async () => {
-                    if (downStream.isActive() && upStream.isActive()) {
-                        await upStream.compete(downStream.onNext({ value, handle, order, upStream, callee: name, }));
-                    }
-                });
-                if (target.parallel!==limit) {
-                    const promise = executeFutures(handle, upStream);
-                    target.pending.push(promise);
-                    return promise;
-                }
+            const target = executions[handle];
+            target.futures.push(() => upStream.compete(downStream.onNext({ value, handle, order, upStream, callee: name, })));
+            if (target.parallel!==limit) {
+                const promise = executeFutures(handle, upStream);
+                target.pending.push(promise);
+                return promise;
             }
         },
         async onComplete (handle, upStreamRoot) {
@@ -132,11 +126,9 @@ const prepareDelay = ({ index, callback, name ='delay', }) => async downStream =
             return downStream.onStart(handle);
         },
         onNext ({ value, handle, order, upStream, callee, }) {
-            if (downStream.isActive() && upStream.isActive()) {
-                const target = executions[handle];
-                target.push(upStream.compete(applyDelay(value, handle, order, upStream, callee)));
-                return target[target.length-1];
-            }
+            const target = executions[handle];
+            target.push(upStream.compete(applyDelay(value, handle, order, upStream, callee)));
+            return target[target.length-1];
         },
         async onComplete (handle, upStreamRoot) {
             await downStream.compete(Promise.all(executions[handle]));
@@ -163,11 +155,9 @@ const prepareAwait = ({ index, name='await', }) => downStream => {
             return downStream.onStart(handle, name);
         },
         onNext ({ value, handle, order, upStream, callee, }) {
-            if (downStream.isActive() && upStream.isActive()) {
-                const promise = upStream.compete(applyAwait(value, handle, order, upStream, callee));
-                executions[handle].push(promise);
-                return promise;
-            }
+            const promise = upStream.compete(applyAwait(value, handle, order, upStream, callee));
+            executions[handle].push(promise);
+            return promise;
         },
         async onComplete (handle, upStreamRoot) {
             await downStream.compete(Promise.all(executions[handle]));
@@ -194,11 +184,9 @@ const prepareGenerator = ({ callback, name = 'generator', index, }) => downStrea
             downStream.onStart(handle, name);
         },
         onNext ({ value, handle, order, upStream, callee, }) {
-            if (downStream.isActive() && upStream.isActive()) {
-                const promise = upStream.compete(generatorResolver(value, handle, order, upStream, callee));
-                executions[handle].push(promise);
-                return promise;
-            }
+            const promise = upStream.compete(generatorResolver(value, handle, order, upStream, callee));
+            executions[handle].push(promise);
+            return promise;
         },
         async onComplete (handle, upStreamRoot) {
             await downStream.compete(Promise.all(executions[handle]));
@@ -239,18 +227,16 @@ const prepareReduceUntil = ({ callback, index, name, params: { defaultValue, }, 
         onStart (handle) {
             executions[handle] = defaultValue;
         },
-        onNext ({ value, handle, upStream, }) {
-            if (self.isActive() && upStream.isActive()) {
-                let next;
-                try {
-                    next = callback(value);
-                } catch (e) {
-                    return downStream.onError(e, { value, index, name, });
-                }
-                executions[handle]= next.value;
-                if (next.done) {
-                    self.resolve();
-                }
+        onNext ({ value, handle, }) {
+            let next;
+            try {
+                next = callback(value);
+            } catch (e) {
+                return downStream.onError(e, { value, index, name, });
+            }
+            executions[handle]= next.value;
+            if (next.done) {
+                self.resolve();
             }
         },
         async onComplete (handle, upStreamRoot) {
@@ -269,16 +255,14 @@ const prepareLast = ({ index, callback, name = 'last', }) => downStream => {
             return downStream.onStart(handle);
         },
         onNext ({ value, handle, order, upStream, callee, }) {
-            if (downStream.isActive() && upStream.isActive()) {
-                try {
-                    executions[handle] = callback(value, executions[handle]);
-                } catch (e) {
-                    return downStream.onError(e, { value, middleware: { index, name, callee, }, });
-                }
-                executions[handle].push({ value, task: () => {
-                    downStream.onNext({ value, handle, order, upStream, callee: name, });
-                }, });
+            try {
+                executions[handle] = callback(value, executions[handle]);
+            } catch (e) {
+                return downStream.onError(e, { value, middleware: { index, name, callee, }, });
             }
+            executions[handle].push({ value, task: () => {
+                downStream.onNext({ value, handle, order, upStream, callee: name, });
+            }, });
         },
         async onComplete (handle, upStreamRoot) {
             executions[handle].forEach(next => next.task());
@@ -296,11 +280,9 @@ const prepareOrdered = ({ callback, index, name = 'ordered', }) => downStream =>
             return downStream.onStart(handle, name);
         },
         onNext ({ value, handle, order, upStream, }) {
-            if (downStream.isActive()) {
-                executions[handle].push({ order, value, task () {
-                    downStream.onNext({ value, handle, order, upStream, callee: name, });
-                }, });
-            }
+            executions[handle].push({ order, value, task () {
+                downStream.onNext({ value, handle, order, upStream, callee: name, });
+            }, });
         },
         onComplete (handle, upStreamRoot) {
             let runnables;
@@ -325,10 +307,8 @@ const prepareDefault = ({ name = 'default', params: { defaultValue, }, }) => dow
             downStream.onStart(handle, name);
         },
         onNext ({ value, handle, order, upStream, }) {
-            if (downStream.isActive() && upStream.isActive()) {
-                executions[handle] = false;
-                return downStream.onNext({ value, handle, order, upStream, callee: name, });
-            }
+            executions[handle] = false;
+            return downStream.onNext({ value, handle, order, upStream, callee: name, });
         },
         onComplete (handle, upStreamRoot) {
             if (executions[handle]) downStream.onNext({ value: defaultValue, handle, order: [ 0, ], upStream: upStreamRoot, callee: name, });
@@ -345,13 +325,11 @@ const prepareReduce = ({ name = 'reduce', index, callback, params: { acc, }, }) 
             executions[handle] = acc;
             downStream.onStart(handle, name);
         },
-        onNext ({ value, handle, upStream, callee, }) {
-            if (upStream.isActive() && downStream.isActive()) {
-                try {
-                    executions[handle] = callback(executions[handle], value);
-                } catch (e) {
-                    return downStream.onError(e, { middleware: { index, name, callee, }, value, });
-                }
+        onNext ({ value, handle, callee, }) {
+            try {
+                executions[handle] = callback(executions[handle], value);
+            } catch (e) {
+                return downStream.onError(e, { middleware: { index, name, callee, }, value, });
             }
         },
         onComplete (handle, upStreamRoot) {
@@ -364,44 +342,38 @@ const prepareReduce = ({ name = 'reduce', index, callback, params: { acc, }, }) 
 
 const prepareFilter = ({ index, callback, name = 'filter', }) =>  (downStream) => ({
     onNext ({ value, handle, order, upStream, callee, }) {
-        if (upStream.isActive() && downStream.isActive()) {
-            let accept;
-            try {
-                accept = callback(value);
-            } catch (e) {
-                return downStream.onError(e, { middleware: { name, value, callee, }, index, });
-            }
-            if (accept) {
-                return downStream.onNext({ value, handle, order, upStream, callee: name, });
-            }
+        let accept;
+        try {
+            accept = callback(value);
+        } catch (e) {
+            return downStream.onError(e, { middleware: { name, value, callee, }, index, });
+        }
+        if (accept) {
+            return downStream.onNext({ value, handle, order, upStream, callee: name, });
         }
     },
 });
 
 const prepareForEach = ({ callback, index, name = 'forEach', }) => async (downStream) => ({
     onNext ({ value, handle, order, upStream, callee, }) {
-        if (upStream.isActive() && downStream.isActive()) {
-            try {
-                callback(value);
-            } catch (e) {
-                return downStream.onError(e, { value, middleware: { index, name, callee, }, }, handle);
-            }
-            return downStream.onNext({ value, handle, order, upStream, callee: name, });
+        try {
+            callback(value);
+        } catch (e) {
+            return downStream.onError(e, { value, middleware: { index, name, callee, }, }, handle);
         }
+        return downStream.onNext({ value, handle, order, upStream, callee: name, });
     },
 });
 
 const prepareMap = ({ name = 'map', callback, index, }) => (downStream) => ({
     onNext ({ value, handle, order, upStream, callee, }) {
-        if (upStream.isActive() && downStream.isActive()) {
-            let out;
-            try {
-                out = callback(value);
-            } catch (e) {
-                return downStream.onError(e, { middleware: { index, name, callee, }, value, });
-            }
-            return downStream.onNext({ value: out, handle, order, upStream, callee: name, });
+        let out;
+        try {
+            out = callback(value);
+        } catch (e) {
+            return downStream.onError(e, { middleware: { index, name, callee, }, value, });
         }
+        return downStream.onNext({ value: out, handle, order, upStream, callee: name, });
     },
 });
 
@@ -422,18 +394,16 @@ const preparePreUpStreamFilter = ({ index, name, callback, }) => async (downStre
     return {
         ...self,
         onNext ({ value, handle, order, upStream, callee, }) {
-            if (self.isActive() && upStream.isActive()) {
-                let accept;
-                try {
-                    accept = callback(value);
-                } catch (e) {
-                    return downStream.onError(e, { value, middleware: { index, name, callee, }, });
-                }
-                if (accept) {
-                    return downStream.onNext({ value, handle, order, upStream, callee: name, });
-                } else {
-                    self.resolve();
-                }
+            let accept;
+            try {
+                accept = callback(value);
+            } catch (e) {
+                return downStream.onError(e, { value, middleware: { index, name, callee, }, });
+            }
+            if (accept) {
+                return downStream.onNext({ value, handle, order, upStream, callee: name, });
+            } else {
+                self.resolve();
             }
         },
     };
@@ -444,19 +414,17 @@ const prepareTakeLimit = ({ name, index, callback, }) => async (downStream) => {
     return {
         ...self,
         onNext ({ value, handle, order, upStream, callee, }) {
-            if (self.isActive() && upStream.isActive()) {
-                const res = downStream.onNext({ value, handle, order, upStream, callee: name, });
-                let stop;
-                try {
-                    stop = callback(value);
-                } catch (e) {
-                    return downStream.onError(e, { value, middleware: { index, name, callee, }, });
-                }
-                if (stop) {
-                    self.resolve();
-                } else {
-                    return res;
-                }
+            const res = downStream.onNext({ value, handle, order, upStream, callee: name, });
+            let stop;
+            try {
+                stop = callback(value);
+            } catch (e) {
+                return downStream.onError(e, { value, middleware: { index, name, callee, }, });
+            }
+            if (stop) {
+                self.resolve();
+            } else {
+                return res;
             }
         },
     };
@@ -464,10 +432,8 @@ const prepareTakeLimit = ({ name, index, callback, }) => async (downStream) => {
 
 const prepareDownStreamFilter = ({ name, callback, }) => (downStream) => ({
     onNext ({ value, handle, order, upStream, }) {
-        if (downStream.isActive() && upStream.isActive()) {
-            callback(upStream, value);
-            return downStream.onNext({ value, order, handle, upStream, callee: name, });
-        }
+        callback(upStream, value);
+        return downStream.onNext({ value, order, handle, upStream, callee: name, });
     },
 });
 

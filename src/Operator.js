@@ -94,8 +94,16 @@ class Operator  {
     static async _createMiddlewares (middlewares) {
         let acc = middlewares[middlewares.length-1];
         for (let i = middlewares.length-2; i>=0; i--) {
-            const md = await middlewares[i](acc);
-            acc = { ...acc, ...md, };
+            const current = acc = { ...acc, ...await middlewares[i](acc), };
+            let {onNext} = acc;
+            if (onNext && !onNext.__proxy__) {
+                onNext.__proxy__ = true;
+                acc.onNext = (param) => {
+                    if (param.upStream.isActive() && current.isActive()) {
+                        return onNext(param);
+                    }
+                };
+            }
         }
         return acc;
     }
