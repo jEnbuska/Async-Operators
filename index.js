@@ -24,6 +24,9 @@ const provider = {
     fromPromise (promise) {
         return new Operator([ valueProvider$({ params: { value: promise, }, name: 'fromPromise', }), await$({ name: 'fromPromise', }), ]);
     },
+    fromEmitter(){
+        return new Operator()
+    }
 };
 
 module.exports = {

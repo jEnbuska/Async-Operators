@@ -61,30 +61,30 @@ class Operator  {
         this[INDEX]= index;
     }
 
-    async pull (..._) {
-        if (_.length) {
-            throw new Error('"pull" should be called without parameters.');
-        }
+    async pull (...params) {
         let out;
         const executionHandle= Operator.executions++;
         let { [MIDDLEWARES]: middlewares, } = this;
         const tail = await createRace();
-        const { onStart, onComplete, } = await createMiddlewares([ ...middlewares,
+        const { onStart, onNext, onComplete, } = await createMiddlewares([ ...middlewares,
             {
                 ...tail,
-                async onComplete () {},
+                onComplete () {},
                 onError (e, info) {
-                    console.error(JSON.stringify({ info, message: e.message, }, null, 1));
+                    console.error(info);
                     throw e;
                 },
-                onNext ({ value, handle, upStream, }) {
-                    if (upStream.isActive() && handle === executionHandle) out = value;
+                onNext (param) {
+                    if (param.upStream.isActive() && param.handle === executionHandle) {
+                        out = param.value;
+                    }
                 },
                 onStart () {},
             },
         ]);
         await onStart(executionHandle, 'pull');
         const upStream = await createRace();
+        params.forEach((value, i) => onNext({ value, handle: executionHandle, order: i, upStream, }));
         return onComplete(executionHandle, upStream, 'pull')
             .then(() => out)
             .catch(e => {
@@ -298,11 +298,27 @@ class Operator  {
         return this[CREATE]({ operator: parallel$, params: { limit, }, });
     }
 
+    async subscribe () {
+        const children = [];
+        const preBuildMiddlewares = await createMiddlewares([ ...this[ MIDDLEWARES ], {
+            onComplete (handle, upStream) {
+                return Promise.all(children.map(child => child.onComplete(handle, upStream, 'listen')));
+            },
+            onNext (param) {
+                return Promise.all(children.map(child => child.onNext(param)));
+            },
+        }, ]);
+        return new Operator([ downStream => {
+            children.push(downStream);
+            return preBuildMiddlewares;
+        }, ], this[INDEX], children);
+    }
+
     [CREATE] (middlewareBuildKit) {
         const index = this[INDEX] + 1;
         const { callback, params = {}, name, operator, } = middlewareBuildKit;
         const nextMiddleware = operator({ callback, name, index, params, });
-        return new this.constructor([ ...this[MIDDLEWARES], nextMiddleware, ], index);
+        return new Operator([ ...this[MIDDLEWARES], nextMiddleware, ], index);
     }
 }
 module.exports = Operator;

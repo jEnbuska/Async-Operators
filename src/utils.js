@@ -394,12 +394,18 @@ function createLatestByCanceller (keys) {
 
 async function createMiddlewares (middlewares) {
     let acc = middlewares[middlewares.length-1];
+    console.log(middlewares[middlewares.length-2]);
+    let prevOnNext;
     for (let i = middlewares.length-2; i>=0; i--) {
-        const current = acc = { ...acc, ...await middlewares[i](acc), };
+        acc = { ...acc, ...await middlewares[i](acc), };
+
         let { onNext, } = acc;
-        if (onNext.name!=='proxy') {
-            acc.onNext = function proxy (param) {
-                if (param.upStream.isActive() && current.isActive()) {
+        if (onNext !== prevOnNext) {
+            prevOnNext = acc.onNext = (param) => {
+                if (!acc.onNext) {
+                    console.log(param.upStream);
+                }
+                if (param.upStream.isActive() && (!acc.isActive || acc.isActive())) {
                     return onNext(param);
                 }
             };
