@@ -46,7 +46,7 @@ await provider({flatten: ['a', 'b']})
 .forEach(value => console.log(value')) // 'a', 'b'
 .pull();
 ```
-##### 'map' expects a value
+##### 'map' any value
 ```
 await provider({map: ['a', 'b']})
 .flatten()
