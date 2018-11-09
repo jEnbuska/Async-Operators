@@ -1,3 +1,5 @@
+## No longer maintained
+
 Performs asynchronous operations using
 familiar functions like 'map', 'filter', 'reduce' etc..
 
