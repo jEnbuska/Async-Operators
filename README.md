@@ -81,7 +81,7 @@ console.log(numbers); // [2, 4, 6]
 .reject(callback);
 .where(object);
 .distinct();
-.distinctBy(...strings); // of some value spesified in keys differes, then the value is considered distinct
+.distinctBy(...strings);
 .skip(number).
 .skipWhile(callback); 
 ```
@@ -91,7 +91,7 @@ console.log(numbers); // [2, 4, 6]
 ```
 .take(number);
 .takeWhile(callback); 
-.takeUntil(callback);
+.takeUntil(callback); // invert of takeWhile
 ```
 ## mapping:
 ```
@@ -110,11 +110,11 @@ console.log(numbers); // [2, 4, 6]
 ```
 ## ordering
 ```
-.parallel(number); // provider output is parallel by default
-.ordered(); // makes sure next middleware gets the next value in it's orginal order
-.reverse(); // same as ordered but reversed
+.parallel(number); // parallel <infinite> by default
+.ordered(); // reorders the output 
+.reverse(); // reorders and reverses the output
 .sort(?callback)
-.sortBy(obj); // expects an object that has values either 'ASC' or 'DESC';
+.sortBy(obj); // creates a comparator using object. See next example
 ```
 #### sortBy example
 ```
@@ -122,7 +122,7 @@ console.log(numbers); // [2, 4, 6]
 ```
 
 ## catch:
-### without catch block all work stop when error is thrown
+### without catch block all work is stopd on error
 ```
 await provider({flatten: [{name: 'John}, null, {name: 'Lisa'}]})
  .filter(person => person.name!=='John')
@@ -136,12 +136,12 @@ await provider({flatten: [{name: 'John}, null, {name: 'Lisa'}]})
 ```
 ## await:
 ```
-await() // waits until promise is resolved
+.await() // waits until the mapped promise gets resolved
 
 ```
 ## default:
 ```
-.default(any) // emits default value on resolve to next middleware if the output would otherwise be empty
+.default(any) // emits default value on onComplete if the output would otherwise be empty
 const result = await provider({value: 1})
   .filter(it => it!==1)
   .default('NOT_SET')
