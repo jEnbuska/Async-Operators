@@ -72,7 +72,7 @@ console.log(numbers); // [2, 4, 6]
 .min(comparator)
 .max(comparator)
 .some(callback); // cancels upstream ones true
-.every(callback); // cancels upstream ones true
+.every(callback); // cancels upstream ones false
 .first(); // cancels upstream ones first resolved
 ```
 ## filtering:
